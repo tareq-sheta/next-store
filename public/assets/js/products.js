@@ -40,5 +40,6 @@ container.innerHTML = "";
 
 products.forEach((product) => {
 	const card = createProductCard(product);
+	
 	container.appendChild(card);
 });
