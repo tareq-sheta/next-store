@@ -12,10 +12,10 @@ const Hero = () => {
       {/* Container */}
       <div className="container mx-auto px-4">
         {/* Row (Flexbox) */}
-        <div className="flex flex-col md:flex-row items-center py-12 md:py-20 gap-10">
+        <div className="flex flex-col-reverse md:flex-row items-center py-12 md:py-20 gap-10">
           
           {/* Text Column */}
-          <div className="w-full md:w-1/2">
+          <div className="w-full  md:w-1/2">
             <p className="text-gray-400 text-xl mb-3">Pro.Beyond.</p>
             <h1 className="text-6xl md:text-8xl font-light mb-4 tracking-tight">
               IPhone 16 <span className="font-bold">Pro</span>
@@ -26,7 +26,7 @@ const Hero = () => {
             
             <Link
               href="/products"
-              className="inline-block border border-white text-white text-lg px-10 py-4 hover:bg-white hover:text-black transition-colors duration-300 rounded-sm"
+              className="w-full text-center sm:w-fit md:w-text-left inline-block border border-white text-white text-lg px-10 py-4 hover:bg-white hover:text-black transition-colors duration-300 rounded-sm"
             >
               Shop Now
             </Link>
