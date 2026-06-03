@@ -26,7 +26,6 @@ export default function Footer() {
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 hover:bg-blue-500 transition-colors duration-300"
                 aria-label="Twitter"
               >
-                {/* <i className="fab fa-twitter"></i> */}
                 <FaTwitter />
               </a>
               <a 
@@ -34,7 +33,6 @@ export default function Footer() {
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 hover:bg-blue-600 transition-colors duration-300"
                 aria-label="Facebook"
               >
-                {/* <i className="fab fa-facebook-f"></i> */}
                 <FaFacebookF />
               </a>
               <a 
@@ -42,7 +40,6 @@ export default function Footer() {
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 hover:bg-pink-500 transition-colors duration-300"
                 aria-label="TikTok"
               >
-                {/* <i className="fab fa-tiktok"></i> */}
                 <FaTiktok />
               </a>
               <a 
@@ -50,7 +47,6 @@ export default function Footer() {
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 hover:bg-pink-600 transition-colors duration-300"
                 aria-label="Instagram"
               >
-                {/* <i className="fab fa-instagram"></i> */}
                 <FaInstagram />
               </a>
             </div>

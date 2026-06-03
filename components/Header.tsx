@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const currentUser = useAuthStore((state) => state.currentUser);
+  console.log(currentUser, "currentUser - header");
   const logout = useAuthStore((state) => state.logout);
   const cartCount = useCartStore((state) => state.cartCount());
   const router = useRouter();
@@ -23,10 +24,9 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white shadow-sm">
       <nav className="px-4 py-3">
         <div className="container mx-auto flex items-center justify-between">
-
           {/* Brand */}
-          <Link className="flex-shrink-0" href="/" id="brand">
-            <div className="relative w-[96px] h-[30px]">
+          <Link className="shrink-0" href="/" id="brand">
+            <div className="relative w-24 h-7.5">
               <Image
                 fill
                 src="/assets/images/LogoMainVector.png"
@@ -72,7 +72,7 @@ export default function Header() {
           </div>
 
           {/* Right Side */}
-          <div className="flex items-center gap-[40px] ml-auto">
+          <div className="flex items-center gap-10 ml-auto">
             {/* Cart Icon */}
             <Link
               id="cart-icon"
@@ -95,7 +95,9 @@ export default function Header() {
                   className="flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900"
                 >
                   <FaUser className="text-[20px]" />
-                  <span className="hidden md:inline">{currentUser.name}</span>
+                  <span className="hidden md:inline">
+                    {currentUser.userName}
+                  </span>
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -121,7 +123,12 @@ export default function Header() {
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Toggle menu"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 {isMenuOpen ? (
                   <path
                     strokeLinecap="round"
