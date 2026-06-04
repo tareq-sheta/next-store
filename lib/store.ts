@@ -1,212 +1,135 @@
-import {
-  Product,
-  users as defaultUsers,
-  products as defaultProducts,
-} from "./data";
-import { User, Address } from "@/types/UserInterface";
-import { genSalt, hash, compare } from "bcryptjs";
+/**
+ * Zustand stores for the next-store application.
+ *
+ * useAuthStore — manages current authenticated user
+ * useCartStore — manages shopping cart state
+ */
 
-// ===== HELPERS =====
-export function getData<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { CartItem, Product, User } from "@/types";
+
+// ─── Auth Store ──────────────────────────────────────────────────────────────
+
+interface AuthState {
+  currentUser: User | null;
+  isHydrated: boolean;
+  setCurrentUser: (user: User | null) => void;
+  logout: () => void;
+  setHydrated: (val: boolean) => void;
 }
 
-export function saveData<T>(key: string, data: T): void {
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      currentUser: null,
+      isHydrated: false,
+      setHydrated: (val: boolean) => set({ isHydrated: val }),
+      setCurrentUser: (user: User | null) => set({ currentUser: user }),
+      logout: () => set({ currentUser: null }),
+    }),
+    {
+      name: "auth-storage",
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true);
+      },
+    },
+  ),
+);
 
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(data));
+// ─── Cart Store ───────────────────────────────────────────────────────────────
+
+interface CartState {
+  items: CartItem[];
+  total: number;
+  addToCart: (item: CartItem | Product) => void;
+  removeFromCart: (productId: string | number) => void;
+  updateQuantity: (productId: string | number, quantity: number) => void;
+  clearCart: () => void;
+  cartCount: () => number;
+  cartTotal: () => number;
 }
 
-// ===== INIT (seed localStorage if empty) =====
-export function initStore(): void {
-  if (typeof window === "undefined") return;
-  if (!localStorage.getItem("users")) {
-    saveData("users", defaultUsers);
-  }
-  if (!localStorage.getItem("products")) {
-    saveData("products", defaultProducts);
-  }
-}
+export const useCartStore = create<CartState>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      total: 0,
 
-// ===== USERS =====
-export function getUsers(): User[] {
-  return getData<User[]>("users", defaultUsers);
-}
+      addToCart: (item) =>
+        set((state) => {
+          const cartItem: CartItem =
+            "cartQuantity" in item
+              ? item
+              : {
+                  id: item.id,
+                  name: item.name,
+                  price: item.price,
+                  quantity: item.quantity ?? 1,
+                  cartQuantity: item.quantity ?? 1,
+                  image: item.image,
+                  category: item.category,
+                };
 
-export function addUser(user: User): void {
-  const users = getUsers();
-  users.push(user);
-  saveData("users", users);
-}
+          const existing = state.items.find((i) => i.id === cartItem.id);
 
-// ===== AUTH =====
-export function getCurrentUser(): User | null {
-  return getData<User | null>("currentUser", null);
-}
+          const updatedItems = existing
+            ? state.items.map((i) =>
+                i.id === cartItem.id
+                  ? {
+                      ...i,
+                      quantity: i.quantity + 1,
+                      cartQuantity: i.cartQuantity + 1,
+                    }
+                  : i,
+              )
+            : [...state.items, { ...cartItem, quantity: 1, cartQuantity: 1 }];
 
-export function setCurrentUser(user: User): void {
-  saveData("currentUser", user);
-}
+          return {
+            items: updatedItems,
+            total: updatedItems.reduce(
+              (sum, i) => sum + i.price * i.quantity,
+              0,
+            ),
+          };
+        }),
 
-export function logoutUser(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem("currentUser");
-}
+      removeFromCart: (productId) =>
+        set((state) => {
+          const updatedItems = state.items.filter(
+            (i) => i.id.toString() !== productId,
+          );
+          return {
+            items: updatedItems,
+            total: updatedItems.reduce(
+              (sum, i) => sum + i.price * i.quantity,
+              0,
+            ),
+          };
+        }),
 
-// ===== PRODUCTS =====
-export function getProducts(): Product[] {
-  return getData<Product[]>("products", defaultProducts);
-}
+      updateQuantity: (productId, quantity) =>
+        set((state) => {
+          const updatedItems = state.items.map((i) =>
+            i.id.toString() === productId
+              ? { ...i, quantity, cartQuantity: quantity }
+              : i,
+          );
+          return {
+            items: updatedItems,
+            total: updatedItems.reduce(
+              (sum, i) => sum + i.price * i.quantity,
+              0,
+            ),
+          };
+        }),
 
-// ===== CART =====
-export interface CartItem extends Product {
-  cartQuantity: number;
-}
+      clearCart: () => set({ items: [], total: 0 }),
 
-export function getCart(): CartItem[] {
-  const user = getCurrentUser();
-  if (!user) return [];
-  return getData<CartItem[]>(`cart_${user.id}`, []);
-}
+      cartCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
 
-export function saveCart(cart: CartItem[]): void {
-  const user = getCurrentUser();
-  if (!user) return;
-  saveData(`cart_${user.id}`, cart);
-}
-
-export function addToCart(product: Product): void {
-  const cart = getCart();
-  const existing = cart.find((item) => item.id === product.id);
-  if (existing) {
-    existing.cartQuantity += 1;
-  } else {
-    cart.push({ ...product, cartQuantity: 1 });
-  }
-  saveCart(cart);
-}
-
-export function removeFromCart(productId: number): void {
-  const cart = getCart().filter((item) => item.id !== productId);
-  saveCart(cart);
-}
-
-export function updateCartQuantity(productId: number, quantity: number): void {
-  const cart = getCart().map((item) =>
-    item.id === productId ? { ...item, cartQuantity: quantity } : item,
-  );
-  saveCart(cart);
-}
-
-export function clearCart(): void {
-  saveCart([]);
-}
-
-export function getCartCount(): number {
-  return getCart().reduce((sum, item) => sum + item.cartQuantity, 0);
-}
-
-export function getCartTotal(): number {
-  return getCart().reduce(
-    (sum, item) => sum + item.price * item.cartQuantity,
-    0,
-  );
-}
-
-// ===== ADDRESSES =====
-export type { Address };
-export function getAddresses(): Address[] {
-  const user = getCurrentUser();
-  return user?.addresses || [];
-}
-
-export function addAddress(address: Address): void {
-  const user = getCurrentUser();
-  if (!user) return;
-  const users = getUsers();
-  const idx = users.findIndex((u) => u.id === user.id);
-  if (idx === -1) return;
-  if (!users[idx].addresses) users[idx].addresses = [];
-  users[idx].addresses.push(address);
-  users[idx].selectedAddressIndex = users[idx].addresses.length - 1;
-  saveData("users", users);
-  setCurrentUser(users[idx]);
-}
-
-export function removeAddress(index: number): void {
-  const user = getCurrentUser();
-  if (!user) return;
-  const users = getUsers();
-  const idx = users.findIndex((u) => u.id === user.id);
-  if (idx === -1) return;
-  if (!users[idx].addresses) return;
-  users[idx].addresses.splice(index, 1);
-  if (users[idx].selectedAddressIndex === index) {
-    users[idx].selectedAddressIndex =
-      users[idx].addresses.length > 0 ? 0 : undefined;
-  } else if (
-    users[idx].selectedAddressIndex &&
-    users[idx].selectedAddressIndex > index
-  ) {
-    users[idx].selectedAddressIndex -= 1;
-  }
-  saveData("users", users);
-  setCurrentUser(users[idx]);
-}
-
-export function updateAddress(index: number, address: Address): void {
-  const user = getCurrentUser();
-  if (!user) return;
-  const users = getUsers();
-  const idx = users.findIndex((u) => u.id === user.id);
-  if (idx === -1) return;
-  if (!users[idx].addresses || !users[idx].addresses[index]) return;
-  users[idx].addresses[index] = address;
-  saveData("users", users);
-  setCurrentUser(users[idx]);
-}
-
-export function selectAddress(index: number): void {
-  const user = getCurrentUser();
-  if (!user) return;
-  const users = getUsers();
-  const idx = users.findIndex((u) => u.id === user.id);
-  if (idx === -1) return;
-  users[idx].selectedAddressIndex = index;
-  saveData("users", users);
-  setCurrentUser(users[idx]);
-}
-
-export function getSelectedAddress(): Address | null {
-  const user = getCurrentUser();
-  if (!user || !user.addresses || user.selectedAddressIndex === undefined)
-    return null;
-  return user.addresses[user.selectedAddressIndex] || null;
-}
-
-// ===== PASSWORD HASHING =====
-export async function hashPassword(password: string): Promise<string> {
-  const salt = await genSalt(10);
-  return await hash(password, salt);
-
-
-  // const msgBuffer = new TextEncoder().encode(password);
-  // const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
-  // const hashArray = Array.from(new Uint8Array(hashBuffer));
-  // return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-export async function comparePassword(password: string,userPassword:string): Promise<boolean> {
-
-  return await compare(password, userPassword);
-
-  // const msgBuffer = new TextEncoder().encode(password);
-  // const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
-  // const hashArray = Array.from(new Uint8Array(hashBuffer));
-  // return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+      cartTotal: () => get().total,
+    }),
+    { name: "cart-storage" },
+  ),
+);
