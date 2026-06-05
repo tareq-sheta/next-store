@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
-import { updateUser, updateUserPassword } from "@/lib/api";
+import { updateUser, updateUserPassword } from "@/lib/api/users";
 import useIsLogged from "@/hooks/useIsLogged";
 
 export default function ProfilePage() {
@@ -14,7 +14,7 @@ export default function ProfilePage() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<"info" | "password">("info");
-  const [name, setName] = useState(currentUser?.name ?? "");
+  const [userName, setUserName] = useState(currentUser?.userName ?? "");
   const [email, setEmail] = useState(currentUser?.email ?? "");
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -32,12 +32,22 @@ export default function ProfilePage() {
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
-    if (!name.trim()) { setError("Name is required"); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("Invalid email"); return; }
+    if (!userName.trim()) {
+      setError("User name is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Invalid email");
+      return;
+    }
 
     setLoading(true);
     try {
-      const updated = await updateUser({ ...currentUser, name: name.trim(), email: email.trim() });
+      const updated = await updateUser({
+        ...currentUser,
+        userName: userName.trim(),
+        email: email.trim(),
+      });
       setCurrentUser(updated);
       showSuccess("Profile updated successfully!");
     } finally {
@@ -51,16 +61,30 @@ export default function ProfilePage() {
 
     const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,16}$/;
     if (!pwdRegex.test(newPwd)) {
-      setError("Password must be 8-16 chars with uppercase, lowercase, number, and special char");
+      setError(
+        "Password must be 8-16 chars with uppercase, lowercase, number, and special char",
+      );
       return;
     }
-    if (newPwd !== confirmPwd) { setError("Passwords do not match"); return; }
+    if (newPwd !== confirmPwd) {
+      setError("Passwords do not match");
+      return;
+    }
 
     setLoading(true);
     try {
-      const result = await updateUserPassword(currentUser.id, currentPwd, newPwd);
-      if (!result.success) { setError(result.error ?? "Failed to update password"); return; }
-      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+      const result = await updateUserPassword(
+        currentUser.id,
+        currentPwd,
+        newPwd,
+      );
+      if (!result.success) {
+        setError(result.error ?? "Failed to update password");
+        return;
+      }
+      setCurrentPwd("");
+      setNewPwd("");
+      setConfirmPwd("");
       showSuccess("Password updated successfully!");
     } finally {
       setLoading(false);
@@ -91,7 +115,11 @@ export default function ProfilePage() {
         {(["info", "password"] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => { setActiveTab(tab); setError(""); setSuccess(""); }}
+            onClick={() => {
+              setActiveTab(tab);
+              setError("");
+              setSuccess("");
+            }}
             className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab
                 ? "border-gray-900 text-gray-900"
@@ -107,12 +135,12 @@ export default function ProfilePage() {
         <form onSubmit={handleInfoSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
+              User Name
             </label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
               required
             />
@@ -151,9 +179,17 @@ export default function ProfilePage() {
       {activeTab === "password" && (
         <form onSubmit={handlePasswordSubmit} className="space-y-5">
           {[
-            { label: "Current Password", value: currentPwd, setter: setCurrentPwd },
+            {
+              label: "Current Password",
+              value: currentPwd,
+              setter: setCurrentPwd,
+            },
             { label: "New Password", value: newPwd, setter: setNewPwd },
-            { label: "Confirm New Password", value: confirmPwd, setter: setConfirmPwd },
+            {
+              label: "Confirm New Password",
+              value: confirmPwd,
+              setter: setConfirmPwd,
+            },
           ].map(({ label, value, setter }) => (
             <div key={label}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -189,7 +225,10 @@ export default function ProfilePage() {
 
       <div className="flex justify-center items-center mt-8 py-2.5 border border-red-500 rounded-lg text-center bg-red-50">
         <button
-          onClick={() => { logout(); router.push("/"); }}
+          onClick={() => {
+            logout();
+            router.push("/");
+          }}
           className="text-sm text-red-500 hover:text-red-700 transition-colors"
         >
           Sign Out
