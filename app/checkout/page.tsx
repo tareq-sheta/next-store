@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
-import { updateUser } from "@/lib/api";
-import { Address } from "@/types/UserInterface";
+//import { updateUser } from "@/lib/api";
+// import { Address } from "@/types/UserInterface";
 import useIsLogged from "@/hooks/useIsLogged";
+import { IAddress, IUser } from "@/models/users";
+import { updateUser } from "@/handlers/users";
 
 export default function CheckoutPage() {
   useIsLogged();
@@ -13,12 +15,12 @@ export default function CheckoutPage() {
   const setCurrentUser = useAuthStore((state) => state.setCurrentUser);
   const router = useRouter();
 
-  const addresses: Address[] = currentUser?.addresses ?? [];
+  const addresses: IAddress[] = currentUser?.addresses ?? [];
   const [selectedIndex, setSelectedIndex] = useState<number | null>(
-    currentUser?.selectedAddressIndex ?? null
+    currentUser?.addresses?.length ? currentUser.addresses.length - 1 : null,
   );
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newAddress, setNewAddress] = useState<Address>({
+  const [newAddress, setNewAddress] = useState<IAddress>({
     title: "",
     fullAddress: "",
     phone: "",
@@ -43,7 +45,7 @@ export default function CheckoutPage() {
       ...currentUser,
       addresses: updatedAddresses,
       selectedAddressIndex:
-        selectedIndex === index ? undefined : selectedIndex ?? undefined,
+        selectedIndex === index ? undefined : (selectedIndex ?? undefined),
     };
     await updateUser(updated);
     setCurrentUser(updated);
@@ -174,17 +176,17 @@ export default function CheckoutPage() {
               {[
                 {
                   label: "Address Title",
-                  key: "title" as keyof Address,
+                  key: "title" as keyof IAddress,
                   placeholder: "e.g. My Home",
                 },
                 {
                   label: "Full Address",
-                  key: "fullAddress" as keyof Address,
+                  key: "fullAddress" as keyof IAddress,
                   placeholder: "123 Main St, City",
                 },
                 {
                   label: "Phone Number",
-                  key: "phone" as keyof Address,
+                  key: "phone" as keyof IAddress,
                   placeholder: "+1 234 567 8900",
                 },
               ].map(({ label, key, placeholder }) => (
