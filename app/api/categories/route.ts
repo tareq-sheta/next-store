@@ -63,9 +63,7 @@ export async function POST(request: Request) {
     const categories = new Categories();
     const doc = await categories.create({
       name: name.trim(),
-      parentId: parentId
-        ? new mongoose.Types.ObjectId(parentId)
-        : undefined,
+      parentId: parentId ? new mongoose.Types.ObjectId(parentId) : undefined,
     });
 
     return NextResponse.json(
