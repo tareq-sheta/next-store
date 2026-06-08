@@ -3,7 +3,8 @@ import connectToDatabase from "@/lib/database";
 import Products, { ProductDoc } from "@/models/products";
 import { CustomError } from "@/utils/ErrorHandler";
 import { CreateProductInput, ProductDTO } from "@/types/products";
-
+import { requireAuth } from "@/lib/auth-gaurd";
+ 
 function toProductDTO(doc: ProductDoc): ProductDTO {
   return {
     _id: doc._id.toString(),
@@ -20,13 +21,13 @@ function toProductDTO(doc: ProductDoc): ProductDTO {
     updatedAt: doc.updatedAt?.toISOString() ?? "",
   };
 }
-
+ 
+// Public — anyone can browse products
 export async function GET() {
   try {
     await connectToDatabase();
     const products = new Products();
     const docs = await products.showAll();
-    console.log(docs);
     return NextResponse.json(
       { success: true, data: docs.map(toProductDTO) },
       { status: 200 },
@@ -44,38 +45,24 @@ export async function GET() {
     );
   }
 }
-
+ 
+// Protected — only admin or seller can create products
 export async function POST(request: Request) {
+  const guard = await requireAuth(["admin", "seller"]);
+  if (guard instanceof NextResponse) return guard;
+ 
   try {
     await connectToDatabase();
     const body: CreateProductInput = await request.json();
-    const {
-      name,
-      sellerEmail,
-      price,
-      description,
-      category,
-      image,
-      fav,
-      stock,
-      quantity,
-    } = body;
-
-    if (
-      !name ||
-      price === undefined ||
-      !description ||
-      !category ||
-      !image ||
-      !sellerEmail ||
-      quantity === undefined
-    ) {
+    const { name, sellerEmail, price, description, category, image, fav, stock, quantity } = body;
+ 
+    if (!name || price === undefined || !description || !category || !image || !sellerEmail || quantity === undefined) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 },
       );
     }
-
+ 
     const products = new Products();
     const existing = await products.showOne(name);
     if (existing) {
@@ -84,7 +71,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-
+ 
     const doc = await products.create({
       name,
       sellerEmail,
@@ -96,7 +83,7 @@ export async function POST(request: Request) {
       stock: stock ?? 0,
       quantity,
     });
-
+ 
     return NextResponse.json(
       { success: true, data: toProductDTO(doc) },
       { status: 201 },
