@@ -1,7 +1,54 @@
-// types/products.ts
+// // types/products.ts
 
-export type ProductCategory = "electronics" | "clothing" | "home" | "books" | "toys" | "other";
+// export type ProductCategory = "electronics" | "clothing" | "home" | "books" | "toys" | "other";
 
+// export interface ProductDTO {
+//   _id: string;
+//   name: string;
+//   sellerEmail: string;
+//   price: number;
+//   description: string;
+//   category: ProductCategory;
+//   image: string;
+//   fav?: boolean;
+//   stock: number;
+//   quantity: number;
+//   createdAt: string;
+//   updatedAt: string;
+// }
+
+// export interface CreateProductInput {
+//   name: string;
+//   sellerEmail: string;
+//   price: number;
+//   description: string;
+//   category: ProductCategory;
+//   image: string;
+//   fav?: boolean;
+//   stock?: number;
+//   quantity: number;
+// }
+
+// export interface UpdateProductInput {
+//   name?: string;
+//   sellerEmail?: string;
+//   price?: number;
+//   description?: string;
+//   category?: ProductCategory;
+//   image?: string;
+//   fav?: boolean;
+//   stock?: number;
+//   quantity?: number;
+// }
+export type ProductCategory =
+  | "phones"
+  | "smartwatch"
+  | "headphones"
+  | "cameras"
+  | "computers"
+  | "gaming"
+  | "others";
+ 
 export interface ProductDTO {
   _id: string;
   name: string;
@@ -16,7 +63,7 @@ export interface ProductDTO {
   createdAt: string;
   updatedAt: string;
 }
-
+ 
 export interface CreateProductInput {
   name: string;
   sellerEmail: string;
@@ -28,7 +75,7 @@ export interface CreateProductInput {
   stock?: number;
   quantity: number;
 }
-
+ 
 export interface UpdateProductInput {
   name?: string;
   sellerEmail?: string;

@@ -34,11 +34,18 @@ export interface CreateUserInput {
 }
 
 export interface UpdateUserInput {
+  id?: string;
+  _id?: string;
+  provider?: AuthProvider;
+  createdAt?: string;
+  updatedAt?: string;
   userName?: string;
   email?: string;
   image?: string;
   role?: UserRole;
+  phone?: string;
   addresses?: AddressDTO[];
+  selectedAddressIndex?: number;
 }
 
 export interface SessionUser {
