@@ -17,7 +17,7 @@ export default function CheckoutPage() {
 
   const addresses: IAddress[] = currentUser?.addresses ?? [];
   const [selectedIndex, setSelectedIndex] = useState<number | null>(
-    currentUser?.addresses?.length ? currentUser.addresses.length - 1 : null,
+    currentUser?.selectedAddressIndex ?? null,
   );
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAddress, setNewAddress] = useState<IAddress>({
@@ -33,7 +33,7 @@ export default function CheckoutPage() {
     e.preventDefault();
     const updatedAddresses = [...addresses, newAddress];
     const updated = { ...currentUser, addresses: updatedAddresses };
-    await updateUser(updated);
+    await updateUser(currentUser._id, updated);
     setCurrentUser(updated);
     setNewAddress({ title: "", fullAddress: "", phone: "", label: "Home" });
     setShowAddModal(false);
@@ -47,7 +47,7 @@ export default function CheckoutPage() {
       selectedAddressIndex:
         selectedIndex === index ? undefined : (selectedIndex ?? undefined),
     };
-    await updateUser(updated);
+    await updateUser(currentUser._id, updated);
     setCurrentUser(updated);
     if (selectedIndex === index) setSelectedIndex(null);
   };
@@ -55,7 +55,7 @@ export default function CheckoutPage() {
   const handleSelectAddress = async (index: number) => {
     setSelectedIndex(index);
     const updated = { ...currentUser, selectedAddressIndex: index };
-    await updateUser(updated);
+    await updateUser(currentUser._id, updated);
     setCurrentUser(updated);
   };
 

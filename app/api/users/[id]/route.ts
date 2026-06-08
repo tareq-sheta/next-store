@@ -50,7 +50,7 @@ export async function GET(_: Request, { params }: RouteParams) {
         { status: 404 },
       );
     }
-
+    console.log("Fetched user:", toUserDTO(doc));
     return NextResponse.json(
       { success: true, data: toUserDTO(doc) },
       { status: 200 },
@@ -121,11 +121,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const allowedFields: (keyof UpdateUserInput)[] = [
+      "id",
+      "_id",
+      "provider",
+      "createdAt",
+      "updatedAt",
       "userName",
       "email",
       "image",
       "role",
+      "phone",
       "addresses",
+      "selectedAddressIndex",
     ];
     const invalidFields = Object.keys(body).filter(
       (key) =>
@@ -136,13 +143,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (invalidFields.length > 0) {
       return NextResponse.json(
-        { success: false, error: `Invalid fields: ${invalidFields.join(", ")}` },
+        {
+          success: false,
+          error: `Invalid fields: ${invalidFields.join(", ")}`,
+        },
         { status: 400 },
       );
     }
 
     const users = new Users();
-    const doc = await users.update(id, body);
+    const doc = await users.update(id, {
+      _id: new mongoose.Types.ObjectId(body._id),
+      provider: body.provider,
+      createdAt: new Date(body.createdAt ?? ""),
+      updatedAt: new Date(body.updatedAt ?? ""),
+      userName: body.userName,
+      email: body.email,
+      image: body.image,
+    });
 
     if (!doc) {
       return NextResponse.json(
