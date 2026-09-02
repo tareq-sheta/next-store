@@ -1,103 +1,95 @@
-import { NextResponse } from "next/server";
+// import { NextRequest, NextResponse } from "next/server";
+// import connectToDatabase from "@/lib/database";
+// import Products from "@/models/products";
+// import { toPublicProductDTO } from "@/lib/dto";
+// import { ListProductsQuerySchema } from "@/lib/validations/products";
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import connectToDatabase from "@/lib/database";
-import Products, { ProductDoc } from "@/models/products";
-import { CustomError } from "@/utils/ErrorHandler";
-import { CreateProductInput, ProductDTO } from "@/types/products";
-import { requireAuth } from "@/lib/auth-gaurd";
- 
-function toProductDTO(doc: ProductDoc): ProductDTO {
-  return {
-    _id: doc._id.toString(),
-    name: doc.name,
-    sellerEmail: doc.sellerEmail,
-    price: doc.price,
-    description: doc.description,
-    category: doc.category,
-    image: doc.image,
-    fav: doc.fav,
-    stock: doc.stock,
-    quantity: doc.quantity,
-    createdAt: doc.createdAt?.toISOString() ?? "",
-    updatedAt: doc.updatedAt?.toISOString() ?? "",
-  };
-}
- 
-// Public — anyone can browse products
-export async function GET() {
+import Products from "@/models/products";
+import { CustomError, handleError } from "@/utils/ErrorHandler";
+import { ListProductsQuerySchema } from "@/lib/validations/products";
+
+import { toPublicProductDTO } from "@/lib/dto";
+// import { CATEGORY_DEFINITIONS } from "@/lib/validations/products";
+// import { requireAuth } from "@/lib/auth-guard";
+
+// const MAX_PAGE_SIZE = 50;
+
+// Public — browse in-stock products. Never returns seller-only fields.
+// export async function GET(request: NextRequest) {
+//   try {
+//     await connectToDatabase();
+//     let session = await requireAuth(["customer", "admin", "seller"]);
+//     if (!session.user) {
+//       // allow unauthenticated users to browse products
+//     }
+//     const parsedQuery = ListProductsQuerySchema.safeParse(
+//       Object.fromEntries(request.nextUrl.searchParams),
+//     );
+//     if (!parsedQuery.success) {
+//       throw new CustomError(
+//         z.treeifyError(parsedQuery.error).errors.join(", "),
+//         400,
+//         "products.GET",
+//       );
+//       // return NextResponse.json(
+//       //   // { success: false, error: parsedQuery.error.flatten().fieldErrors },
+//       //   { success: false, error: z.treeifyError(parsedQuery.error) },
+//       //   { status: 400 },
+//       // );
+//     }
+//     const products = new Products();
+//     const { items, total } = await products.showPublic(parsedQuery.data);
+//     return NextResponse.json(
+//       {
+//         success: true,
+//         data: items.map(toPublicProductDTO),
+//         pagination: {
+//           page: parsedQuery.data.page,
+//           limit: parsedQuery.data.limit,
+//           total,
+//           totalPages: Math.ceil(total / parsedQuery.data.limit),
+//         },
+//       },
+//       { status: 200 },
+//     );
+//   } catch (error) {
+//     return handleError(error, "Failed to fetch products");
+//   }
+// }
+
+// PUBLIC: Anyone (guests, buyers, sellers) can search and view products
+export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
-    const products = new Products();
-    const docs = await products.showAll();
-    return NextResponse.json(
-      { success: true, data: docs.map(toProductDTO) },
-      { status: 200 },
-    );
-  } catch (error) {
-    if (error instanceof CustomError) {
+
+    const searchParams = Object.fromEntries(request.nextUrl.searchParams);
+    const parsedQuery = ListProductsQuerySchema.safeParse(searchParams);
+
+    if (!parsedQuery.success) {
       return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Server error" },
-      { status: 500 },
-    );
-  }
-}
- 
-// Protected — only admin or seller can create products
-export async function POST(request: Request) {
-  const guard = await requireAuth(["admin", "seller"]);
-  if (guard instanceof NextResponse) return guard;
- 
-  try {
-    await connectToDatabase();
-    const body: CreateProductInput = await request.json();
-    const { name, sellerEmail, price, description, category, image, fav, stock, quantity } = body;
- 
-    if (!name || price === undefined || !description || !category || !image || !sellerEmail || quantity === undefined) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields" },
+        { success: false, error: "Invalid query parameters" },
         { status: 400 },
       );
     }
- 
-    const products = new Products();
-    const existing = await products.showOne(name);
-    if (existing) {
-      return NextResponse.json(
-        { success: false, error: "Product already exists" },
-        { status: 400 },
-      );
-    }
- 
-    const doc = await products.create({
-      name,
-      sellerEmail,
-      price,
-      description,
-      category,
-      image,
-      fav,
-      stock: stock ?? 0,
-      quantity,
+
+    const productsRepo = new Products();
+    // Fetches in-stock items, handles pagination and text search
+    const { items, total } = await productsRepo.showPublic(parsedQuery.data);
+
+    return NextResponse.json({
+      success: true,
+      data: items.map(toPublicProductDTO), // Sanitized public fields only
+      pagination: {
+        page: parsedQuery.data.page,
+        limit: parsedQuery.data.limit,
+        total,
+        totalPages: Math.ceil(total / parsedQuery.data.limit),
+      },
     });
- 
-    return NextResponse.json(
-      { success: true, data: toProductDTO(doc) },
-      { status: 201 },
-    );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return handleError(error, "Failed to fetch products");
   }
 }

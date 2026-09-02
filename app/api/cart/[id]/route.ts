@@ -1,43 +1,43 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/database";
-import Cart, { CartDoc } from "@/models/cart";
-import { CustomError } from "@/utils/ErrorHandler";
-import { CartDTO } from "@/types/cart";
+import Cart from "@/models/cart";
+import { handleError } from "@/utils/ErrorHandler";
 import mongoose from "mongoose";
+import { requireAuth } from "@/lib/auth-guard";
+import { toCartDTO } from "@/lib/dto";
+import z from "zod";
+import { QuantitySchema } from "@/lib/validations/cart";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-function toCartDTO(doc: CartDoc): CartDTO {
-  return {
-    _id: doc._id.toString(),
-    user: doc.user.toString(),
-    products: doc.products.map((item) => ({
-      product: item.product.toString(),
-      quantity: item.quantity,
-    })),
-    createdAt: doc.createdAt?.toISOString() ?? "",
-    updatedAt: doc.updatedAt?.toISOString() ?? "",
-  };
+function resolveTargetUserId(
+  request: Request,
+  session: { user: { id: string; role: string } },
+): string {
+  const { searchParams } = new URL(request.url);
+  const requestedUserId = searchParams.get("userId");
+  if (session.user.role === "admin" && requestedUserId) {
+    return requestedUserId;
+  }
+  return session.user.id;
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
+    const session = await requireAuth();
     await connectToDatabase();
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-    const body = await request.json();
-    const quantity = body.quantity as number | undefined;
 
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    const { id } = await params;
+    const userId = resolveTargetUserId(request, session);
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
       return NextResponse.json(
-        { success: false, error: "Valid userId is required" },
+        { success: false, error: "Invalid userId" },
         { status: 400 },
       );
     }
-
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid product id" },
@@ -45,16 +45,17 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    if (quantity === undefined || quantity < 1) {
+    const parsed = QuantitySchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Valid quantity is required" },
+        { success: false, error: parsed.error.issues[0].message },
         { status: 400 },
       );
     }
+    const { quantity } = parsed.data;
 
     const cart = new Cart();
     const existing = await cart.showOne({ user: userId });
-
     if (!existing) {
       return NextResponse.json(
         { success: false, error: "Cart not found" },
@@ -62,20 +63,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const products = existing.products.map((item) => {
-      if (item.product.toString() === id) {
-        return { product: item.product, quantity };
-      }
-      return { product: item.product, quantity: item.quantity };
-    });
-
-    const hasProduct = products.some((item) => item.product.toString() === id);
+    const hasProduct = existing.products.some(
+      (item) => item.product.toString() === id,
+    );
     if (!hasProduct) {
       return NextResponse.json(
         { success: false, error: "Product not in cart" },
         { status: 404 },
       );
     }
+
+    const products = existing.products.map((item) =>
+      item.product.toString() === id
+        ? { product: item.product, quantity }
+        : { product: item.product, quantity: item.quantity },
+    );
 
     const doc = await cart.update(existing._id.toString(), { products });
     if (!doc) {
@@ -90,61 +92,40 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       { status: 200 },
     );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Server error" },
-      { status: 500 },
-    );
+    return handleError(error, "Failed to update cart");
   }
 }
 
+// Removes a single product from the caller's cart. Clearing the entire
+// cart now lives on DELETE /api/cart (the collection route) instead of a
+// magic id === "clear" here.
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
+    const session = await requireAuth();
     await connectToDatabase();
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
 
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    const { id } = await params;
+    const userId = resolveTargetUserId(request, session);
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
       return NextResponse.json(
-        { success: false, error: "Valid userId is required" },
+        { success: false, error: "Invalid userId" },
+        { status: 400 },
+      );
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid product id" },
         { status: 400 },
       );
     }
 
     const cart = new Cart();
     const existing = await cart.showOne({ user: userId });
-
     if (!existing) {
       return NextResponse.json(
         { success: false, error: "Cart not found" },
         { status: 404 },
-      );
-    }
-
-    if (id === "clear") {
-      const doc = await cart.update(existing._id.toString(), { products: [] });
-      if (!doc) {
-        return NextResponse.json(
-          { success: false, error: "Failed to clear cart" },
-          { status: 500 },
-        );
-      }
-      return NextResponse.json(
-        { success: true, data: toCartDTO(doc) },
-        { status: 200 },
-      );
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid product id" },
-        { status: 400 },
       );
     }
 
@@ -165,15 +146,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       { status: 200 },
     );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Server error" },
-      { status: 500 },
-    );
+    return handleError(error, "Failed to update cart");
   }
 }

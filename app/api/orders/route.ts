@@ -1,103 +1,122 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/database";
-import Orders, { OrderDoc } from "@/models/orders";
-import { CustomError } from "@/utils/ErrorHandler";
-import { CreateOrderInput, OrderDTO } from "@/types/orders";
-import { requireAuth } from "@/lib/auth-gaurd";
+import Orders from "@/models/orders";
+import { CustomError, handleError } from "@/utils/ErrorHandler";
+import { requireAuth } from "@/lib/auth-guard";
 import mongoose from "mongoose";
- 
-function toOrderDTO(doc: OrderDoc): OrderDTO {
-  return {
-    _id: doc._id.toString(),
-    user: doc.user.toString(),
-    products: doc.products.map((item) => ({
-      product: item.product.toString(),
-      quantity: item.quantity,
-      status: item.status,
-    })),
-    status: doc.status,
-    createdAt: doc.createdAt?.toISOString() ?? "",
-    updatedAt: doc.updatedAt?.toISOString() ?? "",
-  };
-}
- 
-// Protected — users see their own orders, admins see all
+import { toOrderDTO } from "@/lib/dto";
+import Products from "@/models/products";
+import { CreateOrderSchema } from "@/lib/validations/orders";
+
 export async function GET(request: Request) {
-  const guard = await requireAuth();
-  if (guard instanceof NextResponse) return guard;
- 
   try {
+    const guard = await requireAuth();
     await connectToDatabase();
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
-    const sessionId = (guard.user as { id?: string }).id;
-    const sessionRole = (guard.user as { role?: string }).role;
- 
+    const sessionId = guard.user.id;
+    const sessionRole = guard.user.role;
     const orders = new Orders();
- 
+
     if (sessionRole === "admin") {
-      const query = userId && mongoose.Types.ObjectId.isValid(userId) ? { user: userId } : {};
-      const docs = await orders.showAll(query);
-      return NextResponse.json({ success: true, data: docs.map(toOrderDTO) }, { status: 200 });
+      const query =
+        userId && mongoose.Types.ObjectId.isValid(userId)
+          ? { user: userId }
+          : {};
+      const { items: docs } = await orders.showAllAdmin(query);
+      return NextResponse.json(
+        { success: true, data: docs.map(toOrderDTO) },
+        { status: 200 },
+      );
     }
- 
-    // Non-admin: only their own orders
-    const docs = await orders.showAll({ user: sessionId });
-    return NextResponse.json({ success: true, data: docs.map(toOrderDTO) }, { status: 200 });
+
+    if (sessionRole === "customer") {
+      const { items: docs } = await orders.showAllCustomer(sessionId);
+      return NextResponse.json(
+        { success: true, data: docs.map(toOrderDTO) },
+        { status: 200 },
+      );
+    }
+
+    // Seller — show orders containing their products
+    const { items: docs } = await orders.showAllSeller(sessionId);
+    return NextResponse.json(
+      { success: true, data: docs.map(toOrderDTO) },
+      { status: 200 },
+    );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
-    }
-    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });
+    return handleError(error, "Failed to fetch orders");
   }
 }
- 
-// Protected — authenticated users can place orders
+
 export async function POST(request: Request) {
-  const guard = await requireAuth();
-  if (guard instanceof NextResponse) return guard;
- 
   try {
+    const guard = await requireAuth();
     await connectToDatabase();
-    const body: CreateOrderInput = await request.json();
-    const { user, products, status } = body;
-    const sessionId = (guard.user as { id?: string }).id;
-    const sessionRole = (guard.user as { role?: string }).role;
- 
-    if (!user || !mongoose.Types.ObjectId.isValid(user)) {
-      return NextResponse.json({ success: false, error: "Valid user id is required" }, { status: 400 });
+    const parsed = CreateOrderSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.issues[0].message },
+        { status: 400 },
+      );
     }
- 
+    const { user, products: items } = parsed.data;
+    const sessionId = guard.user.id;
+    const sessionRole = guard.user.role;
     if (sessionRole !== "admin" && sessionId !== user) {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 },
+      );
     }
- 
-    if (!products?.length) {
-      return NextResponse.json({ success: false, error: "At least one product is required" }, { status: 400 });
-    }
- 
-    for (const item of products) {
-      if (!mongoose.Types.ObjectId.isValid(item.product) || item.quantity < 1) {
-        return NextResponse.json({ success: false, error: "Invalid order item" }, { status: 400 });
+
+    const productsRepo = new Products();
+    const decremented: Array<{ productId: string; quantity: number }> = [];
+    try {
+      for (const item of items) {
+        const updated = await productsRepo.decrementStock(
+          item.product,
+          item.quantity,
+        );
+        if (!updated) {
+          throw new CustomError(
+            `Product ${item.product} is unavailable or doesn't have enough stock`,
+            409,
+            "orders.POST",
+          );
+        }
+        decremented.push({ productId: item.product, quantity: item.quantity });
       }
+    } catch (err) {
+      for (const { productId, quantity } of decremented) {
+        await productsRepo.restoreStock(productId, quantity);
+      }
+      throw err;
     }
- 
+
     const orders = new Orders();
-    const doc = await orders.create({
-      user: new mongoose.Types.ObjectId(user),
-      products: products.map((item) => ({
-        product: new mongoose.Types.ObjectId(item.product),
-        quantity: item.quantity,
-        status: item.status ?? "pending",
-      })),
-      status: status ?? "pending",
-    });
- 
-    return NextResponse.json({ success: true, data: toOrderDTO(doc) }, { status: 201 });
-  } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+    let doc;
+    try {
+      doc = await orders.create({
+        user: new mongoose.Types.ObjectId(user),
+        products: items.map((item) => ({
+          product: new mongoose.Types.ObjectId(item.product),
+          quantity: item.quantity,
+          productStatus: item.productStatus ?? "pending",
+        })),
+      });
+    } catch (err) {
+      for (const { productId, quantity } of decremented) {
+        await productsRepo.restoreStock(productId, quantity);
+      }
+      throw err;
     }
-    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });
+
+    return NextResponse.json(
+      { success: true, data: toOrderDTO(doc) },
+      { status: 201 },
+    );
+  } catch (error) {
+    return handleError(error, "Failed to create order");
   }
 }

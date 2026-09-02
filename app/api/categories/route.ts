@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/database";
 import Categories, { CategoryDoc } from "@/models/categories";
-import { CustomError } from "@/utils/ErrorHandler";
-import { CategoryDTO, CreateCategoryInput } from "@/types/categories";
+import { handleError } from "@/utils/ErrorHandler";
+import { CreateCategoryInput } from "@/types/categories";
 import mongoose from "mongoose";
-
-function toCategoryDTO(doc: CategoryDoc): CategoryDTO {
-  return {
-    _id: doc._id.toString(),
-    name: doc.name,
-    slug: doc.slug,
-    parentId: doc.parentId?.toString(),
-    depth: doc.depth,
-    createdAt: doc.createdAt?.toISOString() ?? "",
-    updatedAt: doc.updatedAt?.toISOString() ?? "",
-  };
-}
+import { requireAuth } from "@/lib/auth-guard";
+import z from "zod";
+import { toCategoryDTO } from "@/lib/dto";
+import { CreateCategorySchema } from "@/lib/validations/categories";
 
 export async function GET() {
   try {
@@ -27,59 +19,55 @@ export async function GET() {
       { status: 200 },
     );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Server error" },
-      { status: 500 },
-    );
+    return handleError(error, "Failed to get categories");
   }
 }
 
 export async function POST(request: Request) {
   try {
     await connectToDatabase();
+    await requireAuth(["admin"]);
+
     const body: CreateCategoryInput = await request.json();
     const { name, parentId } = body;
-
-    if (!name?.trim()) {
+    const validation = await CreateCategorySchema.safeParseAsync({
+      name,
+      parentId,
+    });
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: z.treeifyError(validation.error) },
+        { status: 400 },
+      );
+    }
+    const validatedData = validation.data;
+    if (!validatedData.name?.trim()) {
       return NextResponse.json(
         { success: false, error: "Category name is required" },
         { status: 400 },
       );
     }
-
-    if (parentId && !mongoose.Types.ObjectId.isValid(parentId)) {
+    if (
+      validatedData.parentId &&
+      !mongoose.Types.ObjectId.isValid(validatedData.parentId)
+    ) {
       return NextResponse.json(
         { success: false, error: "Invalid parent category id" },
         { status: 400 },
       );
     }
-
     const categories = new Categories();
     const doc = await categories.create({
-      name: name.trim(),
-      parentId: parentId ? new mongoose.Types.ObjectId(parentId) : undefined,
+      name: validatedData.name.trim(),
+      parentId: validatedData.parentId
+        ? new mongoose.Types.ObjectId(validatedData.parentId)
+        : undefined,
     });
-
     return NextResponse.json(
       { success: true, data: toCategoryDTO(doc) },
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Server error" },
-      { status: 500 },
-    );
+    return handleError(error, "Failed to create category");
   }
 }
