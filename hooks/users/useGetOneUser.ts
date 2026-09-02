@@ -1,6 +1,7 @@
 // hooks/users/useUser.ts
+import { fetchUserById } from "@/lib";
 import { useQuery } from "@tanstack/react-query";
-import { fetchUserById } from "@/handlers/users";
+// import { fetchUserById } from "@/handlers/users";
 
 export function useUser(id: string) {
   return useQuery({
