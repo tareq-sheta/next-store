@@ -1,20 +1,12 @@
-/**
- * Zustand stores for the next-store application.
- *
- * useAuthStore — manages current authenticated user
- * useCartStore — manages shopping cart state
- */
-
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CartItem, Product, User } from "@/types";
-
-// ─── Auth Store ──────────────────────────────────────────────────────────────
+import { CartItem, PublicProductDTO, UserDTO } from "@/types";
 
 interface AuthState {
-  currentUser: User | null;
+  currentUser: UserDTO | null;
   isHydrated: boolean;
-  setCurrentUser: (user: User | null) => void;
+  setCurrentUser: (user: UserDTO | null) => void;
+  updateCurrentUser: (user: Partial<UserDTO>) => void;
   logout: () => void;
   setHydrated: (val: boolean) => void;
 }
@@ -25,7 +17,11 @@ export const useAuthStore = create<AuthState>()(
       currentUser: null,
       isHydrated: false,
       setHydrated: (val: boolean) => set({ isHydrated: val }),
-      setCurrentUser: (user: User | null) => set({ currentUser: user }),
+      setCurrentUser: (user: UserDTO | null) => set({ currentUser: user }),
+      updateCurrentUser: (user: Partial<UserDTO>) =>
+        set((state) => ({
+          currentUser: { ...(state.currentUser || {}), ...user } as UserDTO,
+        })),
       logout: () => set({ currentUser: null }),
     }),
     {
@@ -37,12 +33,10 @@ export const useAuthStore = create<AuthState>()(
   ),
 );
 
-// ─── Cart Store ───────────────────────────────────────────────────────────────
-
 interface CartState {
   items: CartItem[];
   total: number;
-  addToCart: (item: CartItem | Product) => void;
+  addToCart: (item: CartItem | PublicProductDTO) => void;
   removeFromCart: (productId: string | number) => void;
   updateQuantity: (productId: string | number, quantity: number) => void;
   clearCart: () => void;
@@ -55,36 +49,29 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       total: 0,
-
       addToCart: (item) =>
         set((state) => {
           const cartItem: CartItem =
-            "cartQuantity" in item
-              ? item
+            "id" in item
+              ? { ...item, quantity: item.quantity ?? 1 }
               : {
-                  id: item.id,
+                  id: item._id,
                   name: item.name,
                   price: item.price,
-                  quantity: item.quantity ?? 1,
-                  cartQuantity: item.quantity ?? 1,
+                  quantity: 1,
                   image: item.image,
                   category: item.category,
                 };
-
-          const existing = state.items.find((i) => i.id === cartItem.id);
-
+          const existing = state.items.find(
+            (i) => i.id.toString() === cartItem.id.toString(),
+          );
           const updatedItems = existing
             ? state.items.map((i) =>
-                i.id === cartItem.id
-                  ? {
-                      ...i,
-                      quantity: i.quantity + 1,
-                      cartQuantity: i.cartQuantity + 1,
-                    }
+                i.id.toString() === cartItem.id.toString()
+                  ? { ...i, quantity: i.quantity + cartItem.quantity }
                   : i,
               )
-            : [...state.items, { ...cartItem, quantity: 1, cartQuantity: 1 }];
-
+            : [...state.items, { ...cartItem, quantity: cartItem.quantity }];
           return {
             items: updatedItems,
             total: updatedItems.reduce(
@@ -93,11 +80,10 @@ export const useCartStore = create<CartState>()(
             ),
           };
         }),
-
       removeFromCart: (productId) =>
         set((state) => {
           const updatedItems = state.items.filter(
-            (i) => i.id.toString() !== productId,
+            (i) => i.id.toString() !== productId.toString(),
           );
           return {
             items: updatedItems,
@@ -107,12 +93,14 @@ export const useCartStore = create<CartState>()(
             ),
           };
         }),
-
       updateQuantity: (productId, quantity) =>
         set((state) => {
+          // Clamp to at least 1 — an unguarded value let quantity go to 0
+          // or negative, producing a cart line with a negative total.
+          const safeQuantity = Math.max(1, quantity);
           const updatedItems = state.items.map((i) =>
-            i.id.toString() === productId
-              ? { ...i, quantity, cartQuantity: quantity }
+            i.id.toString() === productId.toString()
+              ? { ...i, quantity: safeQuantity }
               : i,
           );
           return {
@@ -123,11 +111,8 @@ export const useCartStore = create<CartState>()(
             ),
           };
         }),
-
       clearCart: () => set({ items: [], total: 0 }),
-
       cartCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
-
       cartTotal: () => get().total,
     }),
     { name: "cart-storage" },
