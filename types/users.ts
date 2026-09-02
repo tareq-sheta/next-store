@@ -1,8 +1,17 @@
 // types/users.ts
 
-export type UserRole = "admin" | "seller" | "customer";
+// import { UserRole } from "@/lib/rbac/roles";
+
+// export type UserRole = "admin" | "seller" | "customer";
+const ROLES = ["admin", "seller", "customer"] as const;
+/** The allowed user roles in the system */
+export type UserRole = (typeof ROLES)[number];
+/** Supported authentication providers */
 export type AuthProvider = "credentials" | "google" | "github";
 
+/**
+ * Data Transfer Object for a user's address.
+ */
 export interface AddressDTO {
   _id?: string;
   title: string;
@@ -10,7 +19,22 @@ export interface AddressDTO {
   phone: string;
   label?: string;
 }
-
+/**
+ * Represents the currently authenticated user in the frontend (e.g., in Zustand or NextAuth session).
+ */
+export type CurrentUser = {
+  id: string;
+  name?: string | null;
+  role: UserRole;
+  email?: string | null;
+  image?: string | null;
+  selectedAddressIndex?: number;
+  addresses?: AddressDTO[];
+};
+/**
+ * Data Transfer Object for a user, returned by API endpoints.
+ * Safe to send to the client (password omitted).
+ */
 export interface UserDTO {
   _id: string;
   userName: string;
@@ -18,11 +42,15 @@ export interface UserDTO {
   role: UserRole;
   image?: string;
   provider: AuthProvider;
+  selectedAddressIndex?: number;
   addresses?: AddressDTO[];
   createdAt: string;
   updatedAt: string;
 }
 
+/**
+ * Input type for creating a new user via API.
+ */
 export interface CreateUserInput {
   userName: string;
   email: string;
@@ -33,6 +61,9 @@ export interface CreateUserInput {
   addresses?: AddressDTO[];
 }
 
+/**
+ * Input type for updating a user via API.
+ */
 export interface UpdateUserInput {
   id?: string;
   _id?: string;
@@ -43,11 +74,13 @@ export interface UpdateUserInput {
   email?: string;
   image?: string;
   role?: UserRole;
-  phone?: string;
   addresses?: AddressDTO[];
   selectedAddressIndex?: number;
 }
 
+/**
+ * Minimal user data stored in the NextAuth session.
+ */
 export interface SessionUser {
   _id: string;
   userName: string;
