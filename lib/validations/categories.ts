@@ -1,12 +1,15 @@
 import z from "zod";
-import mongoose from "mongoose";
+
+// Lightweight ObjectId validation — avoids importing mongoose (a Node-only
+// package) here so this file can be safely bundled for the browser.
+const OBJECT_ID_RE = /^[a-f\d]{24}$/i;
 
 export const CreateCategorySchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(100),
     parentId: z
       .string()
-      .refine((v) => mongoose.Types.ObjectId.isValid(v))
+      .refine((v) => OBJECT_ID_RE.test(v), "Invalid ObjectId")
       .optional(),
   })
   .strict();

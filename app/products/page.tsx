@@ -64,7 +64,9 @@ async function ProductGrid({ searchParams }: PageProps) {
           <ProductCard key={product._id} product={product} />
         ))}
       </div>
-      <Pagination totalPages={totalPages} currentPage={parseInt(page)} />
+      <Suspense fallback={null}>
+        <Pagination totalPages={totalPages} currentPage={parseInt(page)} />
+      </Suspense>
     </>
   );
 }
