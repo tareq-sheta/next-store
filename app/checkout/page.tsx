@@ -1,62 +1,107 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
-//import { updateUser } from "@/lib/api";
-// import { Address } from "@/types/UserInterface";
-import useIsLogged from "@/hooks/useIsLogged";
-import { IAddress, IUser } from "@/models/users";
-import { updateUser } from "@/handlers/users";
+import { updateUser } from "@/lib/api/users"; // Adjust path if needed
+import { useSession } from "next-auth/react";
+import { AddressDTO } from "@/types"; // Import from types, NOT @models
 
 export default function CheckoutPage() {
-  useIsLogged();
-  const currentUser = useAuthStore((state) => state.currentUser);
-  const setCurrentUser = useAuthStore((state) => state.setCurrentUser);
   const router = useRouter();
 
-  const addresses: IAddress[] = currentUser?.addresses ?? [];
+  // 1. SECURITY: Use NextAuth strictly to kick out unauthenticated users
+  const { status } = useSession();
+
+  // 2. DATA: Pull the rich user profile from your Zustand store
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const setCurrentUser = useAuthStore((state) => state.setCurrentUser);
+
+  // 3. UI STATE: Base the local state on the Zustand data
+  const addresses: AddressDTO[] = currentUser?.addresses ?? [];
   const [selectedIndex, setSelectedIndex] = useState<number | null>(
     currentUser?.selectedAddressIndex ?? null,
   );
+
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newAddress, setNewAddress] = useState<IAddress>({
+  const [loading, setLoading] = useState(false);
+  const [newAddress, setNewAddress] = useState<AddressDTO>({
     title: "",
     fullAddress: "",
     phone: "",
     label: "Home",
   });
 
-  if (!currentUser) return null;
+  // Protect the route
+  useEffect(() => {
+    console.log(currentUser);
+    console.log(status);
+
+    if (status === "unauthenticated") {
+      router.push("/");
+    }
+  }, [status, router, currentUser]);
+
+  // Wait until Zustand has loaded the profile data
+  if (status === "loading" || !currentUser) return null;
 
   const handleAddAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updatedAddresses = [...addresses, newAddress];
-    const updated = { ...currentUser, addresses: updatedAddresses };
-    await updateUser(currentUser._id, updated);
-    setCurrentUser(updated);
-    setNewAddress({ title: "", fullAddress: "", phone: "", label: "Home" });
-    setShowAddModal(false);
+    setLoading(true);
+    try {
+      const updatedAddresses = [...addresses, newAddress];
+      const updated = { ...currentUser, addresses: updatedAddresses };
+
+      // Update the database
+      await updateUser(updated);
+
+      // Update Zustand so the UI re-renders immediately
+      setCurrentUser(updated);
+
+      // Reset form
+      setNewAddress({ title: "", fullAddress: "", phone: "", label: "Home" });
+      setShowAddModal(false);
+    } catch (error) {
+      console.error("Failed to add address", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRemoveAddress = async (index: number) => {
-    const updatedAddresses = addresses.filter((_, i) => i !== index);
-    const updated = {
-      ...currentUser,
-      addresses: updatedAddresses,
-      selectedAddressIndex:
-        selectedIndex === index ? undefined : (selectedIndex ?? undefined),
-    };
-    await updateUser(currentUser._id, updated);
-    setCurrentUser(updated);
-    if (selectedIndex === index) setSelectedIndex(null);
+    setLoading(true);
+    try {
+      const updatedAddresses = addresses.filter((_, i) => i !== index);
+      const updated = {
+        ...currentUser,
+        addresses: updatedAddresses,
+        selectedAddressIndex:
+          selectedIndex === index ? undefined : (selectedIndex ?? undefined),
+      };
+
+      await updateUser(updated);
+      setCurrentUser(updated); // Keep UI in sync
+
+      if (selectedIndex === index) setSelectedIndex(null);
+    } catch (error) {
+      console.error("Failed to remove address", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectAddress = async (index: number) => {
+    // Optimistic UI update (feels faster to the user)
     setSelectedIndex(index);
-    const updated = { ...currentUser, selectedAddressIndex: index };
-    await updateUser(currentUser._id, updated);
-    setCurrentUser(updated);
+    try {
+      const updated = { ...currentUser, selectedAddressIndex: index };
+      await updateUser(updated);
+      setCurrentUser(updated);
+    } catch (error) {
+      console.error("Failed to select address", error);
+      // Revert if API fails
+      setSelectedIndex(currentUser.selectedAddressIndex ?? null);
+    }
   };
 
   return (
@@ -73,7 +118,8 @@ export default function CheckoutPage() {
               <div className="font-semibold text-sm">Address</div>
             </div>
           </div>
-          <div className="flex-1 h-px bg-gray-300 mx-4" />
+          {/* <div className="flex-1 h-px bg-gray-300 mx-4" /> */}
+          <div className="connector mx-3 grow"></div>
           <div className="flex items-center">
             <div className="w-10 h-10 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center text-sm font-semibold">
               2
@@ -99,7 +145,7 @@ export default function CheckoutPage() {
               key={index}
               className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                 selectedIndex === index
-                  ? "border-gray-900 bg-gray-50"
+                  ? "border-gray-900 bg-gray-150"
                   : "border-gray-200"
               }`}
               onClick={() => handleSelectAddress(index)}
@@ -129,7 +175,8 @@ export default function CheckoutPage() {
                     e.stopPropagation();
                     handleRemoveAddress(index);
                   }}
-                  className="text-red-400 hover:text-red-600 text-sm transition-colors"
+                  disabled={loading}
+                  className="text-red-400 hover:text-red-600 text-sm transition-colors disabled:opacity-50"
                 >
                   Remove
                 </button>
@@ -153,7 +200,7 @@ export default function CheckoutPage() {
         <div className="flex justify-between">
           <button
             onClick={() => router.push("/cart")}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-150 transition-colors"
           >
             ← Back
           </button>
@@ -176,17 +223,17 @@ export default function CheckoutPage() {
               {[
                 {
                   label: "Address Title",
-                  key: "title" as keyof IAddress,
+                  key: "title" as keyof AddressDTO,
                   placeholder: "e.g. My Home",
                 },
                 {
                   label: "Full Address",
-                  key: "fullAddress" as keyof IAddress,
+                  key: "fullAddress" as keyof AddressDTO,
                   placeholder: "123 Main St, City",
                 },
                 {
                   label: "Phone Number",
-                  key: "phone" as keyof IAddress,
+                  key: "phone" as keyof AddressDTO,
                   placeholder: "+1 234 567 8900",
                 },
               ].map(({ label, key, placeholder }) => (
@@ -230,9 +277,10 @@ export default function CheckoutPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
+                  disabled={loading}
+                  className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
                 >
-                  Add Address
+                  {loading ? "Adding..." : "Add Address"}
                 </button>
               </div>
             </form>
