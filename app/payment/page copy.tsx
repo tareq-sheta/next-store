@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore, useCartStore } from "@/lib/store";
+
+import { CurrentUser } from "@/types";
 import { useSession } from "next-auth/react";
+import Orders from "@/models/orders";
 import { createOrder } from "@/lib";
 
 function generateOrderId() {
@@ -43,6 +46,7 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        {/* Modal Header */}
         <div className="flex items-center justify-between p-5 border-b">
           <h2 className="text-lg font-bold">Order Confirmed!</h2>
           <button
@@ -53,7 +57,9 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
           </button>
         </div>
 
+        {/* Receipt Body */}
         <div className="p-5 space-y-5 font-mono text-sm">
+          {/* Store Header */}
           <div className="text-center border-b pb-4 space-y-1">
             <h4 className="text-base font-bold tracking-widest">
               CYBER TECH STORE
@@ -68,6 +74,7 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
             </p>
           </div>
 
+          {/* Customer Info */}
           <div className="space-y-1 border-b pb-4">
             <p className="font-bold tracking-wide mb-2">
               CUSTOMER INFORMATION:
@@ -86,6 +93,7 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
             </p>
           </div>
 
+          {/* Items */}
           <div className="space-y-2 border-b pb-4">
             <p className="font-bold tracking-wide mb-2">ITEMS ORDERED:</p>
             {orderData.items.map((item) => (
@@ -106,6 +114,7 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
             ))}
           </div>
 
+          {/* Totals */}
           <div className="space-y-2">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal:</span>
@@ -127,6 +136,7 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
             </div>
           </div>
 
+          {/* Footer */}
           <div className="text-center text-gray-500 text-xs pt-2 border-t space-y-1">
             <p className="italic">
               Thank you for shopping with Cyber Tech Store!
@@ -135,6 +145,7 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
           </div>
         </div>
 
+        {/* Close Button */}
         <div className="p-5 pt-0">
           <button
             onClick={onClose}
@@ -149,8 +160,12 @@ function ReceiptModal({ orderData, onClose }: ReceiptModalProps) {
 }
 
 export default function PaymentPage() {
-  const { data: session, status } = useSession();
+  // useIsLogged();
+  // const currentUser = useAuthStore((state) => state.currentUser);
+  const { status } = useSession();
+  // const currentUser = session?.user as CurrentUser | undefined;
   const currentUser = useAuthStore((state) => state.currentUser);
+  // console.log(session);
   const { items, clearCart } = useCartStore();
   const cartTotal = useCartStore((state) => state.cartTotal());
   const router = useRouter();
@@ -163,72 +178,66 @@ export default function PaymentPage() {
     name: "",
   });
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
-  const [placingOrder, setPlacingOrder] = useState(false);
-  const [orderError, setOrderError] = useState<string | null>(null);
 
   const tax = Math.round(cartTotal * 0.14);
   const total = cartTotal + tax;
 
   const selectedAddress =
     currentUser?.addresses?.[currentUser?.selectedAddressIndex ?? -1];
-
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/");
-  }, [status, router]);
+  }, [status]);
+  const handlePlaceOrder = () => {
+    const orderData = {
+      orderId: generateOrderId(),
+      customerName: currentUser?.userName || "Guest",
+      customerEmail: currentUser?.email || "N/A",
+      address: selectedAddress
+        ? `${selectedAddress.title} — ${selectedAddress.fullAddress}`
+        : "N/A",
+      items: items,
+      subtotal: cartTotal,
+      tax: tax,
+      shipping: 0,
+      total: total,
+    };
 
-  const handlePlaceOrder = async () => {
-    // Guards against a double-click / slow-network double-submit sending
-    // two identical orders — same failure mode we discussed for order
-    // creation in general; this is the one place it's actually reachable
-    // from a real button a real user can click twice.
-    if (placingOrder) return;
-    if (!session?.user?.id) return;
-    if (items.length === 0) return;
-
-    setOrderError(null);
-    setPlacingOrder(true);
-    try {
-      const response = await createOrder({
-        user: session.user.id,
-        products: items.map((item) => ({
-          product: item.id.toString(),
-          quantity: item.quantity,
-        })),
-      });
-
-      if (!response.success) {
-        setOrderError(response.error ?? "Failed to place order");
-        return;
-      }
-
-      // Only build/show the receipt once the order genuinely exists —
-      // previously this ran unconditionally with no server call at all.
-      setReceiptData({
-        orderId: response.data._id.toString(),
-        customerName: currentUser?.userName || "Guest",
-        customerEmail: currentUser?.email || "N/A",
-        address: selectedAddress
-          ? `${selectedAddress.title} — ${selectedAddress.fullAddress}`
-          : "N/A",
-        items,
-        subtotal: cartTotal,
-        tax,
-        shipping: 0,
-        total,
-      });
-    } catch (err) {
-      setOrderError(
-        err instanceof Error ? err.message : "Failed to place order",
-      );
-    } finally {
-      setPlacingOrder(false);
-    }
+    setReceiptData(orderData);
   };
 
   const handleCloseReceipt = () => {
     clearCart();
-    router.push("/");
+    router.push("/?order=success");
   };
+  console.log(currentUser, "address111");
+  // useEffect(() => {
+  //   if (!currentUser) return;
+  //   if (items.length === 0) {
+  //     router.replace("/cart");
+  //   } else if (!selectedAddress) {
+  //     router.replace("/checkout");
+  //   }
+  // }, [items, selectedAddress, router, currentUser]);
+  //------------
+  //------------
+  //------------
+  // useEffect(() => {
+  //   if (status === "unauthenticated") {
+  //     router.replace("/");
+  //   }
+  // }, [status, router]);
+  // useEffect(() => {
+  //   if (!currentUser) return;
+
+  //   if (items.length === 0) {
+  //     router.replace("/");
+  //   } else if (!selectedAddress) {
+  //     router.replace("/checkout");
+  //   }
+  // }, [items, selectedAddress, router, currentUser]);
+
+  // if (!currentUser) return null;
+  // if (items.length === 0 || !selectedAddress) return null;
 
   return (
     <>
@@ -238,6 +247,7 @@ export default function PaymentPage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
+          {/* Progress Steps */}
           <div className="flex items-center mb-8">
             <div className="flex items-center">
               <div className="w-10 h-10 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center text-sm font-semibold">
@@ -261,6 +271,7 @@ export default function PaymentPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left — Order Summary */}
             <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
               <h5 className="text-lg font-semibold">Order Summary</h5>
               <div className="space-y-3">
@@ -315,6 +326,7 @@ export default function PaymentPage() {
               </div>
             </div>
 
+            {/* Right — Payment Form */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <h5 className="text-lg font-semibold mb-4">
                 Payment Information
@@ -427,18 +439,11 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {orderError && (
-                <p className="mt-4 text-sm text-red-600" role="alert">
-                  {orderError}
-                </p>
-              )}
-
               <button
                 onClick={handlePlaceOrder}
-                disabled={placingOrder || items.length === 0}
-                className="w-full mt-6 bg-black text-white py-3 rounded-lg hover:bg-gray-800 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full mt-6 bg-black text-white py-3 rounded-lg hover:bg-gray-800 font-semibold transition-colors"
               >
-                {placingOrder ? "Placing order…" : `Place Order — $${total}`}
+                Place Order — ${total}
               </button>
             </div>
           </div>

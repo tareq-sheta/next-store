@@ -1,832 +1,394 @@
-
-// "use client";
-
-// import { IoEye as Eye, IoEyeOff as EyeOff } from "react-icons/io5";
-// import { useState } from "react";
-// import { useForm, SubmitHandler } from "react-hook-form";
-// import { useRouter } from "next/navigation";
-// import { useAuthStore } from "@/lib/store";
-// // import { User } from "@/types";
-// import { IUser } from "@/models/users";
-// import { login, register } from "@/handlers/users";
-
-// // Mocks for lucide-react icons instead of react-icons
-// // import { Eye, EyeOff } from "lucide-react";
-
-// interface LoginFormInputs {
-//   email: string;
-//   password: string;
-// }
-
-// interface RegisterFormInputs {
-//   userName: string;
-//   email: string;
-//   phone?: string;
-//   role: "customer" | "seller";
-//   password: string;
-//   confirm: string;
-// }
-
-// // Mock API and Store for standalone preview
-// const mockLoginUser = async (user: IUser) => {
-//   return new Promise<{ success: boolean; user?: IUser; error?: string }>(
-//     (resolve) =>
-//       setTimeout(() => {
-//         if (
-//           user.email === "test@test.com" &&
-//           user.password === "Password123!"
-//         ) {
-//           resolve({ success: true, user: user });
-//         } else {
-//           resolve({
-//             success: false,
-//             error: "Invalid credentials (try test@test.com / Password123!)",
-//           });
-//         }
-//       }, 1000),
-//   );
-// };
-
-// const mockRegisterUser = async (user: IUser) => {
-//   return new Promise<{ success: boolean; user?: IUser; error?: string }>(
-//     (resolve) =>
-//       setTimeout(() => {
-//         resolve({ success: true, user: user });
-//       }, 1000),
-//   );
-// };
-
-// export default function LoginPage() {
-//   const [isLogin, setIsLogin] = useState(true);
-//   const [error, setError] = useState("");
-//   const [loading, setLoading] = useState(false);
-//   const [showPassword, setShowPassword] = useState(false);
-//   const [successMsg, setSuccessMsg] = useState("");
-//   let router = useRouter();
-
-//   const toggleMode = () => {
-//     setError("");
-//     setSuccessMsg("");
-//     resetLogin();
-//     resetRegister();
-//     setIsLogin(!isLogin);
-//   };
-
-//   // Login form
-//   const {
-//     register: registerLogin,
-//     handleSubmit: handleLoginSubmit,
-//     reset: resetLogin,
-//     formState: { errors: loginErrors },
-//   } = useForm<LoginFormInputs>();
-
-//   // Register form
-//   // ---------
-//   // ---------
-//   // ---------
-
-//   const {
-//     register: registerReg,
-//     handleSubmit: handleRegisterSubmit,
-//     watch,
-//     reset: resetRegister,
-//     formState: { errors: regErrors },
-//   } = useForm<RegisterFormInputs>({ defaultValues: { role: "customer" } });
-
-//   // const onLogin: SubmitHandler<LoginFormInputs> = async (data) => {
-//   //   setError("");
-//   //   setSuccessMsg("");
-//   //   setLoading(true);
-//   //   // console.log(data, "dataaa - login");
-//   //   try {
-//   //     // const result = await mockLoginUser(data as User);
-//   //     let result = await login(data.email, data.password);
-
-//   //     if (!result.success) {
-//   //       setError(result.error ?? "Login failed.");
-//   //       return;
-//   //     }
-//   //     setSuccessMsg("Successfully logged in!");
-//   //     // useAuthStore.getState().setCurrentUser(result.user as User);
-//   //     router.push("/");
-//   //   } finally {
-//   //     setLoading(false);
-//   //   }
-//   // };
-//   // -----------
-//   // -----------
-//   // -----------
-//   // type RegData = Omit<User, "id">;
-//   const onLogin: SubmitHandler<LoginFormInputs> = async (data) => {
-//     setError("");
-//     setSuccessMsg("");
-//     setLoading(true);
-
-//     try {
-//       const result = await login(data.email, data.password);
-
-//       // 1. Check for failure
-//       if (!result?.success) {
-//         // Use the exact error message we defined in the API route
-//         setError(result?.error ?? "Login failed.");
-//         return;
-//       }
-
-//       // 2. Success!
-//       setSuccessMsg("Successfully logged in!");
-
-//       // 3. Save the user to your store
-//       // Note: Our API returned `{ data: userWithoutPassword }`, so we access `result.data`
-//       useAuthStore.getState().setCurrentUser(result.data);
-
-//       // 4. Redirect
-//       router.push("/");
-//     } catch (err) {
-//       setError("An unexpected error occurred.");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const onRegister: SubmitHandler<RegisterFormInputs> = async (data) => {
-//     setError("");
-//     setSuccessMsg("");
-//     setLoading(true);
-//     console.log(data, "dataaa - register");
-//     try {
-//       // const result = await mockRegisterUser(data as User);
-//       // const result = await mockRegisterUser({ ...data, _id: 12 });
-//       const result = await register(data.email, data.password);
-//       // let registeredUser: User = {
-//       //   id: "12",
-//       //   name: data.userName,
-//       //   email: data.email,
-//       //   role: data.role,
-//       //   phone: data.phone,
-//       //   password: data.password,
-//       // };
-//       if (!result.success) {
-//         setError(result.error ?? "Registration failed.");
-//         return;
-//       }
-//       setSuccessMsg("Successfully registered!");
-//       useAuthStore.getState().setCurrentUser(result.data);
-//       router.push("/");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <div className="min-h-screen relative overflow-hidden bg-gray-50 flex">
-//       {/*
-//         Absolute layout for panels to slide past each other on desktop.
-//         On mobile, we stack them (or in this case, hide the info panel like the original).
-//       */}
-
-//       {/* Dark Info Panel */}
-//       <div
-//         className={`hidden md:flex absolute top-0 w-1/2 h-full bg-[#211C24] text-white flex-col justify-center px-16 z-10 transition-transform duration-700 ease-in-out ${
-//           isLogin ? "translate-x-0" : "translate-x-full"
-//         }`}
-//       >
-//         <div className="relative h-64 w-full">
-//           {/* Login Mode Content */}
-//           <div
-//             className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
-//               isLogin
-//                 ? "opacity-100 delay-300"
-//                 : "opacity-0 pointer-events-none"
-//             }`}
-//           >
-//             <h1 className="text-5xl font-bold mb-4">Cyber</h1>
-//             <div className="w-24 h-1 bg-white mb-6 rounded" />
-//             <h2 className="text-2xl font-semibold mb-4">
-//               All-in-One E-Commerce Made Easy.
-//             </h2>
-//             <p className="text-gray-300 leading-relaxed mb-10">
-//               From product management to order tracking, our platform helps you
-//               run your online business smoothly and effectively.
-//             </p>
-//           </div>
-
-//           {/* Register Mode Content */}
-//           <div
-//             className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
-//               !isLogin
-//                 ? "opacity-100 delay-300"
-//                 : "opacity-0 pointer-events-none"
-//             }`}
-//           >
-//             <h1 className="text-5xl font-bold mb-4">Cyber</h1>
-//             <div className="w-24 h-1 bg-white mb-6 rounded" />
-//             <h2 className="text-2xl font-semibold mb-4">
-//               Join Our Community Today.
-//             </h2>
-//             <p className="text-gray-300 leading-relaxed mb-10">
-//               Set up your store or start shopping with thousands of vendors.
-//               Experience a new way of e-commerce.
-//             </p>
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* White Form Panel */}
-//       <div
-//         className={`w-full md:absolute md:top-0 md:w-1/2 min-h-screen overflow-y-auto bg-white transition-transform duration-700 ease-in-out ${
-//           isLogin ? "md:translate-x-full" : "md:translate-x-0"
-//         } flex flex-col justify-center px-8 md:px-16 py-12 z-0`}
-//       >
-//         <div className="max-w-md w-full mx-auto relative">
-//           <div className="text-center mb-8 relative h-[60px]">
-//             {/* Login Header */}
-//             <div
-//               className={`absolute w-full top-0 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
-//             >
-//               <h3 className="text-2xl font-bold text-gray-900">Welcome Back</h3>
-//               <p className="text-gray-500 text-sm mt-1">
-//                 Please login to your account
-//               </p>
-//             </div>
-//             {/* Register Header */}
-//             <div
-//               className={`absolute w-full top-0 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
-//             >
-//               <h3 className="text-2xl font-bold text-gray-900">
-//                 Create Account
-//               </h3>
-//               <p className="text-gray-500 text-sm mt-1">
-//                 Fill in the details to get started
-//               </p>
-//             </div>
-//           </div>
-
-//           {error && (
-//             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-5 animate-in fade-in slide-in-from-top-2">
-//               {error}
-//             </div>
-//           )}
-
-//           {successMsg && (
-//             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm mb-5 animate-in fade-in slide-in-from-top-2">
-//               {successMsg}
-//             </div>
-//           )}
-
-//           {}
-//           <div className="grid">
-//             {/* Login Form */}
-//             <div
-//               className={`col-start-1 row-start-1 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300 z-10" : "opacity-0 z-0 pointer-events-none"}`}
-//             >
-//               <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Email Address
-//                   </label>
-//                   <input
-//                     {...registerLogin("email", {
-//                       required: "Email is required",
-//                     })}
-//                     type="email"
-//                     placeholder="you@example.com"
-//                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none transition-shadow"
-//                   />
-//                   {loginErrors.email && (
-//                     <p className="text-red-500 text-xs mt-1">
-//                       {loginErrors.email.message}
-//                     </p>
-//                   )}
-//                 </div>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Password
-//                   </label>
-//                   <div className="relative">
-//                     <input
-//                       {...registerLogin("password", {
-//                         required: "Password is required",
-//                       })}
-//                       type={showPassword ? "text" : "password"}
-//                       placeholder="••••••••"
-//                       className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none transition-shadow"
-//                     />
-//                     <button
-//                       type="button"
-//                       onClick={() => setShowPassword(!showPassword)}
-//                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-//                     >
-//                       {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-//                     </button>
-//                   </div>
-//                   {loginErrors.password && (
-//                     <p className="text-red-500 text-xs mt-1">
-//                       {loginErrors.password.message}
-//                     </p>
-//                   )}
-//                 </div>
-//                 <button
-//                   type="submit"
-//                   disabled={loading}
-//                   className="w-full bg-[#211C24] text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-60 mt-4"
-//                 >
-//                   {loading ? "Logging in..." : "Login"}
-//                 </button>
-//               </form>
-//             </div>
-
-//             {/* Register Form */}
-//             <div
-//               className={`col-start-1 row-start-1 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300 z-10" : "opacity-0 z-0 pointer-events-none"}`}
-//             >
-//               <form
-//                 onSubmit={handleRegisterSubmit(onRegister)}
-//                 className="space-y-4"
-//               >
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Full Name
-//                   </label>
-//                   <input
-//                     {...registerReg("userName", {
-//                       required: "Name is required",
-//                     })}
-//                     placeholder="John Doe"
-//                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none transition-shadow"
-//                   />
-//                   {regErrors.userName && (
-//                     <p className="text-red-500 text-xs mt-1">
-//                       {regErrors.userName.message}
-//                     </p>
-//                   )}
-//                 </div>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Email
-//                   </label>
-//                   <input
-//                     {...registerReg("email", {
-//                       required: "Email is required",
-//                       pattern: {
-//                         value: /^\S+@\S+$/i,
-//                         message: "Invalid email format",
-//                       },
-//                     })}
-//                     type="email"
-//                     placeholder="you@example.com"
-//                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none transition-shadow"
-//                   />
-//                   {regErrors.email && (
-//                     <p className="text-red-500 text-xs mt-1">
-//                       {regErrors.email.message}
-//                     </p>
-//                   )}
-//                 </div>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Phone (optional)
-//                   </label>
-//                   <input
-//                     {...registerReg("phone")}
-//                     placeholder="+1 234 567 8900"
-//                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none transition-shadow"
-//                   />
-//                 </div>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Account Type
-//                   </label>
-//                   <select
-//                     {...registerReg("role")}
-//                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white outline-none focus:ring-2 focus:ring-gray-400 transition-shadow"
-//                   >
-//                     <option value="customer">Customer</option>
-//                     <option value="seller">Seller</option>
-//                   </select>
-//                 </div>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Password
-//                   </label>
-//                   <div className="relative">
-//                     <input
-//                       {...registerReg("password", {
-//                         required: "Password is required",
-//                         pattern: {
-//                           value:
-//                             /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,16}$/,
-//                           message:
-//                             "8-16 chars, include upper, lower, number & symbol",
-//                         },
-//                       })}
-//                       type={showPassword ? "text" : "password"}
-//                       placeholder="••••••••"
-//                       className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none transition-shadow"
-//                     />
-//                     <button
-//                       type="button"
-//                       onClick={() => setShowPassword(!showPassword)}
-//                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-//                     >
-//                       {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-//                     </button>
-//                   </div>
-//                   {regErrors.password && (
-//                     <p className="text-red-500 text-xs mt-1">
-//                       {regErrors.password.message}
-//                     </p>
-//                   )}
-//                 </div>
-//                 <div>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     Confirm Password
-//                   </label>
-//                   <input
-//                     {...registerReg("confirm", {
-//                       required: "Please confirm your password",
-//                       validate: (val) =>
-//                         val === watch("password") || "Passwords do not match",
-//                     })}
-//                     type={showPassword ? "text" : "password"}
-//                     placeholder="••••••••"
-//                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none transition-shadow"
-//                   />
-//                   {regErrors.confirm && (
-//                     <p className="text-red-500 text-xs mt-1">
-//                       {regErrors.confirm.message}
-//                     </p>
-//                   )}
-//                 </div>
-//                 <button
-//                   type="submit"
-//                   disabled={loading}
-//                   className="w-full bg-[#211C24] text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-60 mt-4"
-//                 >
-//                   {loading ? "Creating account..." : "Sign Up"}
-//                 </button>
-//               </form>
-//             </div>
-//           </div>
-
-//           {}
-//           {/* Toggle Section */}
-//           <div className="pt-4 border-t border-gray-100 transition-all duration-500 mt-5">
-//             <p className="text-center text-sm text-gray-500 relative h-6">
-//               <span
-//                 className={`absolute w-full left-0 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
-//               >
-//                 Don't have an account?{" "}
-//                 <button
-//                   type="button"
-//                   onClick={toggleMode}
-//                   className="text-gray-900 font-semibold hover:underline rounded px-1 cursor-pointer"
-//                 >
-//                   Sign Up
-//                 </button>
-//               </span>
-//               <span
-//                 className={`absolute w-full left-0 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
-//               >
-//                 Already have an account?{" "}
-//                 <button
-//                   type="button"
-//                   onClick={toggleMode}
-//                   className="text-gray-900 font-semibold hover:underline rounded px-1 cursor-pointer"
-//                 >
-//                   Login
-//                 </button>
-//               </span>
-//             </p>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
 "use client";
- 
+
 import { IoEye as Eye, IoEyeOff as EyeOff } from "react-icons/io5";
 import { useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { signIn } from "next-auth/react";
+import { register } from "@/lib";
 import { useAuthStore } from "@/lib/store";
-import { login, register } from "@/lib/api/users";
- 
-interface LoginFormInputs {
-  email: string;
-  password: string;
-}
- 
-interface RegisterFormInputs {
-  userName: string;
+import { fetchUserByProperty } from "@/lib/actions/users.actions";
+import { toast } from "sonner";
+
+interface FormInputs {
+  userName?: string;
   email: string;
   role: "customer" | "seller";
   password: string;
-  confirm: string;
+  confirm?: string;
 }
- 
+
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const [error, setError] = useState("");
+  // const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
+  // const [successMsg, setSuccessMsg] = useState("");
   const router = useRouter();
- 
+
+  const {
+    register: reg,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<FormInputs>({
+    defaultValues: { role: "customer" },
+  });
+
   const toggleMode = () => {
-    setError("");
-    setSuccessMsg("");
-    resetLogin();
-    resetRegister();
+    // setError("");
+    // setSuccessMsg("");
+    reset({
+      email: "",
+      password: "",
+      userName: "",
+      confirm: "",
+      role: "customer",
+    });
     setIsLogin(!isLogin);
   };
- 
-  const {
-    register: registerLogin,
-    handleSubmit: handleLoginSubmit,
-    reset: resetLogin,
-    formState: { errors: loginErrors },
-  } = useForm<LoginFormInputs>();
- 
-  const {
-    register: registerReg,
-    handleSubmit: handleRegisterSubmit,
-    watch,
-    reset: resetRegister,
-    formState: { errors: regErrors },
-  } = useForm<RegisterFormInputs>({ defaultValues: { role: "customer" } });
- 
-  const onLogin: SubmitHandler<LoginFormInputs> = async (data) => {
-    setError("");
-    setSuccessMsg("");
+
+  const onSubmit: SubmitHandler<FormInputs> = async (data) => {
+    // setError("");
+    // setSuccessMsg("");
     setLoading(true);
+
     try {
-      const result = await login(data.email, data.password);
-      if (!result.success) {
-        setError(result.error ?? "Login failed.");
-        return;
+      if (isLogin) {
+        // --- LOGIN FLOW ---
+        const result = await signIn("credentials", {
+          email: data.email,
+          password: data.password,
+          redirect: false, // Prevents automatic redirect so we can handle errors
+        });
+
+        if (result?.error) {
+          // setError("Invalid credentials. Please try again.");
+          toast.error("Invalid credentials. Please try again.");
+          return;
+        }
+        // console.log("user before fetchUserByProperty");
+        const userData = await fetchUserByProperty({
+          prop: "email",
+          value: data.email,
+        });
+        if (!userData.success) {
+          // setError(userData.error);
+          toast.error(userData.error);
+          return;
+        }
+        // console.log("user logged in: ", userData.data);
+        useAuthStore.getState().setCurrentUser(userData.data);
+        // const user1 = useAuthStore.getState().currentUser;
+        // console.log("user1 in the login page: ", user1);
+        // setSuccessMsg("Successfully logged in!");
+        toast.success("Successfully logged in!");
+        router.push("/");
+      } else {
+        // --- REGISTRATION FLOW ---
+        const regResult = await register({
+          email: data.email,
+          password: data.password,
+          userName: data.userName || "",
+          role: data.role ?? "customer",
+        });
+
+        if (!regResult.success) {
+          // setError(regResult.error ?? "Registration failed.");
+          toast.error(regResult.error ?? "Registration failed.");
+          return;
+        }
+
+        // Auto-login after successful registration
+        const autoSignIn = await signIn("credentials", {
+          email: data.email,
+          password: data.password,
+          redirect: false,
+        });
+
+        if (autoSignIn?.error) {
+          // setError("Account created, but failed to automatically log in.");
+          toast.error("Account created, but failed to automatically log in.");
+          return;
+        }
+        useAuthStore.getState().setCurrentUser(regResult.data);
+        const user1 = useAuthStore.getState().currentUser;
+        // console.log("user1 in the register page: ", user1);
+        // setSuccessMsg("Successfully registered!");
+        toast.success("Successfully registered!");
+        router.push("/");
       }
-      useAuthStore.getState().setCurrentUser(result.data);
-      setSuccessMsg("Successfully logged in!");
-      router.push("/");
-    } catch {
-      setError("An unexpected error occurred.");
+    } catch (error) {
+      console.error(error);
+      // setError("An unexpected error occurred.");
+      toast.error("An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
   };
- 
-  const onRegister: SubmitHandler<RegisterFormInputs> = async (data) => {
-    setError("");
-    setSuccessMsg("");
-    setLoading(true);
-    try {
-      const result = await register(data.email, data.password, data.userName);
-      if (!result.success) {
-        setError(result.error ?? "Registration failed.");
-        return;
-      }
-      useAuthStore.getState().setCurrentUser(result.data);
-      setSuccessMsg("Successfully registered!");
-      router.push("/");
-    } finally {
-      setLoading(false);
-    }
-  };
- 
+
+  // Shared Tailwind helper class for fields that fade and shrink away during Login
+  const registerFieldClass = `transition-all delay-200 duration-100 ease-in-out origin-top ${
+    isLogin
+      ? "max-h-0 opacity-0 pointer-events-none scale-95 mb-0 overflow-hidden"
+      : "max-h-[100px] opacity-100 mb-4"
+  }`;
+
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gray-50 flex">
+    <div className="min-h-screen relative overflow-hidden bg-gray-150 flex">
       {/* Dark Info Panel */}
       <div
-        className={`hidden md:flex absolute top-0 w-1/2 h-full bg-[#211C24] text-white flex-col justify-center px-16 z-10 transition-transform duration-700 ease-in-out ${
-          isLogin ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`hidden md:flex absolute top-0 w-1/2 h-full bg-[#211C24] text-white flex-col justify-center px-16 z-10 transition-transform duration-700 ease-in-out ${isLogin ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="relative h-64 w-full">
+          <div className="relative m-auto bottom-10 w-48 h-15">
+            <Image
+              fill
+              src="/assets/images/login-logo.png"
+              alt="Cyber Logo"
+              style={{
+                objectFit: "contain",
+              }}
+            />
+          </div>
           <div
-            className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
-              isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"
-            }`}
+            className={`absolute top-20 inset-0 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
           >
-            <h1 className="text-5xl font-bold mb-4">Cyber</h1>
-            <div className="w-24 h-1 bg-white mb-6 rounded" />
-            <h2 className="text-2xl font-semibold mb-4">All-in-One E-Commerce Made Easy.</h2>
-            <p className="text-gray-300 leading-relaxed">
-              From product management to order tracking, our platform helps you run your online
-              business smoothly and effectively.
+            <h2 className="text-2xl font-semibold mb-4 text-center">
+              All-in-One E-Commerce Made Easy.
+            </h2>
+            <p className="text-gray-300 leading-relaxed text-center">
+              From product management to order tracking, our platform helps you
+              run your online business smoothly and effectively.
             </p>
           </div>
           <div
-            className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
-              !isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"
-            }`}
+            className={`absolute top-20 inset-0 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
           >
-            <h1 className="text-5xl font-bold mb-4">Cyber</h1>
-            <div className="w-24 h-1 bg-white mb-6 rounded" />
-            <h2 className="text-2xl font-semibold mb-4">Join Our Community Today.</h2>
-            <p className="text-gray-300 leading-relaxed">
-              Set up your store or start shopping with thousands of vendors. Experience a new way
-              of e-commerce.
+            <h2 className="text-2xl font-semibold mb-4 text-center">
+              Join Our Community Today.
+            </h2>
+            <p className="text-gray-300 leading-relaxed text-center">
+              Set up your store or start shopping with thousands of vendors.
+              Experience a new way of e-commerce.
             </p>
           </div>
         </div>
       </div>
- 
+
       {/* Form Panel */}
       <div
-        className={`w-full md:absolute md:top-0 md:w-1/2 min-h-screen overflow-y-auto bg-white transition-transform duration-700 ease-in-out ${
-          isLogin ? "md:translate-x-full" : "md:translate-x-0"
-        } flex flex-col justify-center px-8 md:px-16 py-12 z-0`}
+        className={`w-full md:absolute md:top-0 md:w-1/2 min-h-screen overflow-y-auto bg-white transition-transform duration-700 ease-in-out ${isLogin ? "md:translate-x-full" : "md:translate-x-0"} flex flex-col justify-center px-8 md:px-16 py-12 z-0`}
       >
         <div className="max-w-md w-full mx-auto relative">
-          <div className="text-center mb-8 relative h-[60px]">
+          <div className="text-center mb-8 relative h-15">
             <div
               className={`absolute w-full top-0 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
             >
               <h3 className="text-2xl font-bold text-gray-900">Welcome Back</h3>
-              <p className="text-gray-500 text-sm mt-1">Please login to your account</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Please login to your account
+              </p>
             </div>
             <div
               className={`absolute w-full top-0 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
             >
-              <h3 className="text-2xl font-bold text-gray-900">Create Account</h3>
-              <p className="text-gray-500 text-sm mt-1">Fill in the details to get started</p>
+              <h3 className="text-2xl font-bold text-gray-900">
+                Create Account
+              </h3>
+              <p className="text-gray-500 text-sm mt-1">
+                Fill in the details to get started
+              </p>
             </div>
           </div>
- 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-5">
-              {error}
-            </div>
-          )}
-          {successMsg && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm mb-5">
-              {successMsg}
-            </div>
-          )}
- 
-          <div className="grid">
-            {/* Login Form */}
+
+          {/* {(error || successMsg) && (
             <div
-              className={`col-start-1 row-start-1 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300 z-10" : "opacity-0 z-0 pointer-events-none"}`}
+              className={`border px-4 py-3 rounded-lg text-sm mb-5 transition-all ${error ? "bg-red-50 border-red-200 text-red-600" : "bg-green-50 border-green-200 text-green-700"}`}
             >
-              <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                  <input
-                    {...registerLogin("email", { required: "Email is required" })}
-                    type="email"
-                    placeholder="you@example.com"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
-                  />
-                  {loginErrors.email && (
-                    <p className="text-red-500 text-xs mt-1">{loginErrors.email.message}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                  <div className="relative">
-                    <input
-                      {...registerLogin("password", { required: "Password is required" })}
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-                    </button>
-                  </div>
-                  {loginErrors.password && (
-                    <p className="text-red-500 text-xs mt-1">{loginErrors.password.message}</p>
-                  )}
-                </div>
+              {error || successMsg}
+            </div>
+          )} */}
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Full Name (Fades Out) */}
+            <div className={registerFieldClass}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Full Name
+              </label>
+              <input
+                {...reg("userName", {
+                  required: !isLogin && "Name is required",
+                })}
+                placeholder="John Doe"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
+              />
+              {errors.userName && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.userName.message}
+                </p>
+              )}
+            </div>
+
+            {/* Email Address (Always Visible) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <input
+                {...reg("email", {
+                  required: "Email is required",
+                  pattern: isLogin
+                    ? undefined
+                    : { value: /^\S+@\S+$/i, message: "Invalid email format" },
+                })}
+                type="email"
+                placeholder="you@example.com"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
+              />
+              {errors.email && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            {/* Account Type (Fades Out) */}
+            <div className={registerFieldClass}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account Type
+              </label>
+              <div className="grid grid-cols-2 gap-3 h-10.5">
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#211C24] text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-60 mt-4"
+                  type="button"
+                  onClick={() => setValue("role", "customer")}
+                  className={`py-2 rounded-lg text-xs font-bold border transition-all duration-300 h-full ${
+                    watch("role") === "customer"
+                      ? "bg-gray-950 border-gray-950 text-white shadow-md"
+                      : "bg-white border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                  }`}
                 >
-                  {loading ? "Logging in..." : "Login"}
+                  Customer
                 </button>
-              </form>
+                <button
+                  type="button"
+                  onClick={() => setValue("role", "seller")}
+                  className={`py-2 rounded-lg text-xs font-bold border transition-all duration-300 h-full ${
+                    watch("role") === "seller"
+                      ? "bg-gray-950 border-gray-950 text-white shadow-md"
+                      : "bg-white border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                  }`}
+                >
+                  Seller
+                </button>
+              </div>
             </div>
- 
-            {/* Register Form */}
-            <div
-              className={`col-start-1 row-start-1 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300 z-10" : "opacity-0 z-0 pointer-events-none"}`}
-            >
-              <form onSubmit={handleRegisterSubmit(onRegister)} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                  <input
-                    {...registerReg("userName", { required: "Name is required" })}
-                    placeholder="John Doe"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
-                  />
-                  {regErrors.userName && (
-                    <p className="text-red-500 text-xs mt-1">{regErrors.userName.message}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    {...registerReg("email", {
-                      required: "Email is required",
-                      pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" },
-                    })}
-                    type="email"
-                    placeholder="you@example.com"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
-                  />
-                  {regErrors.email && (
-                    <p className="text-red-500 text-xs mt-1">{regErrors.email.message}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
-                  <select
-                    {...registerReg("role")}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white outline-none focus:ring-2 focus:ring-gray-400"
-                  >
-                    <option value="customer">Customer</option>
-                    <option value="seller">Seller</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                  <div className="relative">
-                    <input
-                      {...registerReg("password", {
-                        required: "Password is required",
-                        pattern: {
-                          value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,16}$/,
-                          message: "8-16 chars, include upper, lower, number & symbol",
+
+            {/* Password (Always Visible) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  {...reg("password", {
+                    required: "Password is required",
+                    pattern: isLogin
+                      ? undefined
+                      : {
+                          value:
+                            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,16}$/,
+                          message:
+                            "8-16 chars, include upper, lower, number & symbol",
                         },
-                      })}
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-                    </button>
-                  </div>
-                  {regErrors.password && (
-                    <p className="text-red-500 text-xs mt-1">{regErrors.password.message}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                  <input
-                    {...registerReg("confirm", {
-                      required: "Please confirm your password",
-                      validate: (val) => val === watch("password") || "Passwords do not match",
-                    })}
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
-                  />
-                  {regErrors.confirm && (
-                    <p className="text-red-500 text-xs mt-1">{regErrors.confirm.message}</p>
-                  )}
-                </div>
+                  })}
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
+                />
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#211C24] text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-60 mt-4"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {loading ? "Creating account..." : "Sign Up"}
+                  {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                 </button>
-              </form>
+              </div>
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.password.message}
+                </p>
+              )}
             </div>
-          </div>
- 
-          <div className="pt-4 border-t border-gray-100 mt-5">
-            <p className="text-center text-sm text-gray-500 relative h-6">
-              <span
-                className={`absolute w-full left-0 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
+
+            {/* Confirm Password (Fades Out) */}
+            <div className={registerFieldClass}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password
+              </label>
+              <input
+                {...reg("confirm", {
+                  required: !isLogin && "Please confirm your password",
+                  validate: (val) =>
+                    isLogin ||
+                    val === watch("password") ||
+                    "Passwords do not match",
+                })}
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
+              />
+              {errors.confirm && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.confirm.message}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#211C24] text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-60 mt-4"
+            >
+              {loading
+                ? isLogin
+                  ? "Logging in..."
+                  : "Creating account..."
+                : isLogin
+                  ? "Login"
+                  : "Sign Up"}
+            </button>
+          </form>
+
+          {/* Footer Switching Transition */}
+          <div className="pt-4 border-t border-gray-100 mt-5 text-center text-sm text-gray-500 relative h-6">
+            <span
+              className={`absolute w-full left-0 transition-opacity duration-500 ease-in-out ${isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
+            >
+              Don&apos;t have an account?{" "}
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="text-gray-900 font-semibold hover:underline"
               >
-                Don&apos;t have an account?{" "}
-                <button type="button" onClick={toggleMode} className="text-gray-900 font-semibold hover:underline">
-                  Sign Up
-                </button>
-              </span>
-              <span
-                className={`absolute w-full left-0 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
+                Sign Up
+              </button>
+            </span>
+            <span
+              className={`absolute w-full left-0 transition-opacity duration-500 ease-in-out ${!isLogin ? "opacity-100 delay-300" : "opacity-0 pointer-events-none"}`}
+            >
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="text-gray-900 font-semibold hover:underline"
               >
-                Already have an account?{" "}
-                <button type="button" onClick={toggleMode} className="text-gray-900 font-semibold hover:underline">
-                  Login
-                </button>
-              </span>
-            </p>
+                Login
+              </button>
+            </span>
           </div>
         </div>
       </div>

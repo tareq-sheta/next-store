@@ -1,27 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/store";
+// import { useAuthStore } from "@/lib/store";
 import { updateUser, updateUserPassword } from "@/lib/api/users";
-import useIsLogged from "@/hooks/useIsLogged";
+import { signOut, useSession } from "next-auth/react";
+import { CurrentUser } from "@/types";
 
 export default function ProfilePage() {
-  useIsLogged();
-  const currentUser = useAuthStore((state) => state.currentUser);
-  const setCurrentUser = useAuthStore((state) => state.setCurrentUser);
-  const logout = useAuthStore((state) => state.logout);
   const router = useRouter();
 
+  // 1. Properly pull session and status
+  const { data: session, status, update: updateSession } = useSession();
+  const user = session?.user as CurrentUser | undefined;
+  console.log(session);
+  // 2. Restore the logout function from Zustand
+  // const logout = useAuthStore((state) => state.logout);
+
+  // 3. Form State (Initialized to empty, updated when session loads)
   const [activeTab, setActiveTab] = useState<"info" | "password">("info");
-  const [userName, setUserName] = useState(currentUser?.userName ?? "");
-  const [email, setEmail] = useState(currentUser?.email ?? "");
+  const [userName, setUserName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
+
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
+
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 4. Safely handle redirects and state initialization using useEffect
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    } else if (status === "authenticated" && user) {
+      setUserName(user.name || "");
+      setEmail(user.email || "");
+    }
+  }, [status, user, router]);
 
   const showSuccess = (msg: string) => {
     setSuccess(msg);
@@ -31,7 +48,7 @@ export default function ProfilePage() {
 
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!user) return;
     if (!userName.trim()) {
       setError("User name is required");
       return;
@@ -43,13 +60,28 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      const updated = await updateUser({
-        ...currentUser,
+      // NOTE: We are constructing the payload from individual state variables now.
+      const response = await updateUser({
+        _id: user.id, // Assuming your API needs the ID to know who to update
         userName: userName.trim(),
         email: email.trim(),
       });
-      setCurrentUser(updated);
+
+      if (!response.success || !response.data) {
+        setError(response.error || "Failed to update profile");
+        return;
+      }
+      await updateSession({
+        ...session,
+        user: {
+          ...session?.user,
+          name: userName.trim(),
+          email: email.trim(),
+        },
+      });
       showSuccess("Profile updated successfully!");
+    } catch (err) {
+      setError("An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -57,7 +89,7 @@ export default function ProfilePage() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (!user) return;
 
     const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,16}$/;
     if (!pwdRegex.test(newPwd)) {
@@ -74,7 +106,7 @@ export default function ProfilePage() {
     setLoading(true);
     try {
       const result = await updateUserPassword(
-        currentUser.id,
+        user.id, // Ensure your session token includes the user ID
         currentPwd,
         newPwd,
       );
@@ -86,12 +118,15 @@ export default function ProfilePage() {
       setNewPwd("");
       setConfirmPwd("");
       showSuccess("Password updated successfully!");
+    } catch (err) {
+      setError("An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!currentUser) return null;
+  // Prevent rendering the form before the session is verified
+  if (status === "loading" || !user) return null;
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-lg">
@@ -161,7 +196,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm hover:bg-gray-150 transition-colors"
             >
               Cancel
             </button>
@@ -208,7 +243,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm hover:bg-gray-150 transition-colors"
             >
               Cancel
             </button>
@@ -225,8 +260,8 @@ export default function ProfilePage() {
 
       <div className="flex justify-center items-center mt-8 py-2.5 border border-red-500 rounded-lg text-center bg-red-50">
         <button
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await signOut();
             router.push("/");
           }}
           className="text-sm text-red-500 hover:text-red-700 transition-colors"
