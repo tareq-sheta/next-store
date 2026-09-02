@@ -16,13 +16,9 @@ export type AuthProvider = "credentials" | "google" | "github";
  * Represents a user's address.
  */
 export interface IAddress {
-  /** The title of the address (e.g., "Home", "Office") */
   title: string;
-  /** The full physical address */
   fullAddress: string;
-  /** Contact phone number for the address */
   phone: string;
-  /** Optional label for the address */
   label?: string;
 }
 
@@ -30,25 +26,15 @@ export interface IAddress {
  * Mongoose document interface for a User.
  */
 export interface IUser extends Document {
-  /** The unique username */
   userName: string;
-  /** The unique email address */
   email: string;
-  /** The hashed password (optional if using OAuth) */
   password?: string;
-  /** The user's role (customer, seller, admin) */
   role: UserRole;
-  /** Array of user addresses */
   addresses?: IAddress[];
-  /** Index of the currently selected address */
   selectedAddressIndex?: number | null;
-  /** URL to the user's avatar image */
   image?: string;
-  /** The authentication provider used */
   provider?: AuthProvider;
-  /** Creation timestamp */
   createdAt?: Date;
-  /** Last update timestamp */
   updatedAt?: Date;
 }
 
@@ -138,15 +124,10 @@ usersSchema.pre("findOneAndUpdate", async function () {
 export const usersModel: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>("User", usersSchema);
 
-
 /**
  * Repository class for interacting with the User collection.
  */
 class Users {
-  /**
-   * Fetches all users.
-   * @returns A promise that resolves to an array of UserDoc.
-   */
   async showAll(): Promise<UserDoc[]> {
     try {
       return await usersModel.find().select("-password").lean<UserDoc[]>();

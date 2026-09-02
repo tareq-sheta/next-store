@@ -1,14 +1,14 @@
 import mongoose, { Document, Schema, Model, Types, SortOrder } from "mongoose";
 import { CustomError } from "@/utils/ErrorHandler";
-import { VALID_CATEGORIES } from "@/lib/validations/products";
-import type { PopulatedSeller, PublicProductDTO } from "@/types/products";
+import { CATEGORY_DEFINITIONS } from "@/lib/validations/categories";
+import type { PopulatedSeller } from "@/types/products";
 import { PaginatedResult } from "@/types";
 import { isValidObjectId, omitId } from "@/utils/mongoose";
 import { toPublicProductDTO } from "@/lib/dto";
 
-// VALID_CATEGORIES is now an array of objects; extract the slug strings for
+// CATEGORY_DEFINITIONS is now an array of objects; extract the slug strings for
 // use as the canonical category type and in the Mongoose enum validator.
-export type ProductCategory = (typeof VALID_CATEGORIES)[number]["slug"];
+export type ProductCategory = (typeof CATEGORY_DEFINITIONS)[number]["slug"];
 /**
  * Options for fetching top-selling products.
  */
@@ -82,7 +82,7 @@ const productsSchema: Schema<IProduct> = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: VALID_CATEGORIES.map((cat) => cat.slug),
+      enum: CATEGORY_DEFINITIONS.map((cat) => cat.slug),
       required: [true, "A product must have a category."],
     },
     stock: {
@@ -117,8 +117,6 @@ productsSchema.index({ name: "text", description: "text" });
 export const productsModel: Model<IProduct> =
   mongoose.models.Product ||
   mongoose.model<IProduct>("Product", productsSchema);
-
-
 
 /**
  * Repository class for interacting with the Product collection.

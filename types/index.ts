@@ -1,5 +1,6 @@
 export type {
   UserDTO,
+  CurrentUser,
   CreateUserInput,
   UpdateUserInput,
   SessionUser,
@@ -9,13 +10,15 @@ export type {
 } from "./users";
 
 export type {
-  ProductDTO,
+  PublicProductDTO,
+  SellerProductDTO,
+  AdminProductDTO,
   CreateProductInput,
   UpdateProductInput,
   ProductCategory,
 } from "./products";
 
-export type { CartDTO, CartItemDTO, AddToCartInput } from "./cart";
+export type { CartDTO, CartItemDTO, AddToCartInput, CartItem } from "./cart";
 
 export type {
   OrderDTO,
@@ -31,28 +34,10 @@ export type {
   UpdateCategoryInput,
 } from "./categories";
 
-/** @deprecated Use UserDTO — kept for existing store/UI code */
-export type User = import("./users").UserDTO & {
-  id: string;
-  selectedAddressIndex?: number;
-};
-
-/** @deprecated Use ProductDTO — kept for existing store/UI code */
-export type Product = import("./products").ProductDTO & { id: string | number };
 
 /** Client-side cart line used by Zustand (not the API CartDTO) */
-export interface CartItem {
-  id: string | number;
-  name: string;
-  price: number;
-  quantity: number;
-  cartQuantity: number;
-  image: string;
-  category?: string;
-}
 
-/** Client-side cart shape used by Zustand (not the API CartDTO) */
-export interface Cart {
-  items: CartItem[];
+export interface PaginatedResult<T> {
+  items: T[];
   total: number;
 }
