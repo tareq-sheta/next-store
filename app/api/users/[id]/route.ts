@@ -1,38 +1,30 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import connectToDatabase from "@/lib/database";
-import Users, { UserDoc, usersModel } from "@/models/users";
-import { CustomError } from "@/utils/ErrorHandler";
-import { UpdateUserInput, UserDTO } from "@/types/users";
+import Users, { usersModel } from "@/models/users";
+import { CustomError, handleError } from "@/utils/ErrorHandler";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { requireAuth } from "@/lib/auth-guard";
+import { assertOwnerOrAdmin } from "@/lib/rbac/ownership";
+import { toUserDTO } from "@/lib/dto";
+import { productsModel } from "@/models/products";
+import {
+  PasswordChangeSchema,
+  UpdateProfileSchema,
+} from "@/lib/validations/users";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-function toUserDTO(doc: UserDoc): UserDTO {
-  return {
-    _id: doc._id.toString(),
-    userName: doc.userName,
-    email: doc.email,
-    role: doc.role,
-    image: doc.image,
-    provider: doc.provider ?? "credentials",
-    addresses: doc.addresses?.map((addr) => ({
-      title: addr.title,
-      fullAddress: addr.fullAddress,
-      phone: addr.phone,
-      label: addr.label ?? "Home",
-    })),
-    createdAt: doc.createdAt?.toISOString() ?? "",
-    updatedAt: doc.updatedAt?.toISOString() ?? "",
-  };
-}
-
 export async function GET(_: Request, { params }: RouteParams) {
   try {
     await connectToDatabase();
+    const session = await requireAuth();
     const { id } = await params;
+
+    assertOwnerOrAdmin(session, { user: id }, "users.GET");
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -43,40 +35,31 @@ export async function GET(_: Request, { params }: RouteParams) {
 
     const users = new Users();
     const doc = await users.showOne({ _id: id });
-
     if (!doc) {
       return NextResponse.json(
         { success: false, error: "User not found" },
         { status: 404 },
       );
     }
-    console.log("Fetched user:", toUserDTO(doc));
+
     return NextResponse.json(
       { success: true, data: toUserDTO(doc) },
       { status: 200 },
     );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Server error" },
-      { status: 500 },
-    );
+    return handleError(error, "Server error");
   }
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     await connectToDatabase();
+    const session = await requireAuth();
     const { id } = await params;
-    const body = (await request.json()) as UpdateUserInput & {
-      currentPassword?: string;
-      newPassword?: string;
-    };
+
+    assertOwnerOrAdmin(session, { user: id }, "users.PATCH");
+
+    const body = await request.json();
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -85,7 +68,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    if (body.currentPassword && body.newPassword) {
+    if ("currentPassword" in body || "newPassword" in body) {
+      const parsed = PasswordChangeSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { success: false, error: parsed.error.issues[0].message },
+          { status: 400 },
+        );
+      }
+
       const existing = await usersModel.findById(id).select("+password");
       if (!existing) {
         return NextResponse.json(
@@ -95,7 +86,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
 
       const isMatch = await bcrypt.compare(
-        body.currentPassword,
+        parsed.data.currentPassword,
         existing.password ?? "",
       );
       if (!isMatch) {
@@ -106,7 +97,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
 
       const users = new Users();
-      const doc = await users.update(id, { password: body.newPassword });
+      const doc = await users.update(id, { password: parsed.data.newPassword });
       if (!doc) {
         return NextResponse.json(
           { success: false, error: "User not found" },
@@ -120,48 +111,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       );
     }
 
-    const allowedFields: (keyof UpdateUserInput)[] = [
-      "id",
-      "_id",
-      "provider",
-      "createdAt",
-      "updatedAt",
-      "userName",
-      "email",
-      "image",
-      "role",
-      "phone",
-      "addresses",
-      "selectedAddressIndex",
-    ];
-    const invalidFields = Object.keys(body).filter(
-      (key) =>
-        key !== "currentPassword" &&
-        key !== "newPassword" &&
-        !allowedFields.includes(key as keyof UpdateUserInput),
-    );
-
-    if (invalidFields.length > 0) {
+    const parsed = UpdateProfileSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Invalid fields: ${invalidFields.join(", ")}`,
-        },
+        { success: false, error: parsed.error.issues[0].message },
         { status: 400 },
       );
     }
 
     const users = new Users();
-    const doc = await users.update(id, {
-      _id: new mongoose.Types.ObjectId(body._id),
-      provider: body.provider,
-      createdAt: new Date(body.createdAt ?? ""),
-      updatedAt: new Date(body.updatedAt ?? ""),
-      userName: body.userName,
-      email: body.email,
-      image: body.image,
-    });
-
+    const doc = await users.update(id, parsed.data);
     if (!doc) {
       return NextResponse.json(
         { success: false, error: "User not found" },
@@ -174,39 +133,28 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       { status: 200 },
     );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Failed to update user" },
-      { status: 500 },
-    );
+    return handleError(error, "Failed to update user");
   }
 }
 
 export async function DELETE(_: Request, { params }: RouteParams) {
   try {
+    const session = await requireAuth();
     await connectToDatabase();
     const { id } = await params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid user id" },
-        { status: 400 },
-      );
+      throw new CustomError("Invalid user id", 400, "users.DELETE");
+    }
+
+    if (session.user.id !== id && session.user.role !== "admin") {
+      throw new CustomError("Forbidden action", 403, "users.DELETE");
     }
 
     const users = new Users();
     const doc = await users.delete(id);
-
     if (!doc) {
-      return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 },
-      );
+      throw new CustomError("User not found", 404, "users.DELETE");
     }
 
     return NextResponse.json(
@@ -214,15 +162,6 @@ export async function DELETE(_: Request, { params }: RouteParams) {
       { status: 200 },
     );
   } catch (error) {
-    if (error instanceof CustomError) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
-    return NextResponse.json(
-      { success: false, error: "Failed to delete user" },
-      { status: 500 },
-    );
+    return handleError(error, "Failed to delete user");
   }
 }

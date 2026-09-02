@@ -43,3 +43,26 @@ export const RegisterSchema = z
       path: ["password"],
     },
   );
+
+export const PasswordChangeSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
+// `phone` removed — there's no top-level phone path on the User schema
+// (it only exists inside each entry of `addresses`), so with
+// `strict: true` this was accepted by Zod, sent to Mongoose, and
+// silently dropped on every save with no error.
+export const UpdateProfileSchema = z
+  .object({
+    userName: z
+      .string()
+      .trim()
+      .min(2, "Username must be at least 2 characters")
+      .optional(),
+    email: z.email("Invalid email format").trim().toLowerCase().optional(),
+    image: z.url("Image must be a valid URL").optional(),
+    addresses: z.array(AddressSchema).optional(),
+    selectedAddressIndex: z.number().int().nonnegative().optional(),
+  })
+  .strict();
