@@ -3,10 +3,9 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import connectToDatabase from "@/lib/database";
 import { usersModel } from "@/models/users";
 import bcrypt from "bcryptjs";
-// import { UserRole } from "@/types";
+
 import { Types } from "mongoose";
 import { UserRole } from "./rbac/roles";
-import { AddressDTO } from "@/types";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -22,10 +21,6 @@ export const authOptions: NextAuthOptions = {
 
         await connectToDatabase();
 
-        // const user = await usersModel
-        //   .findOne({ email: credentials.email.toLowerCase() })
-        //   .select("+password")
-        //   .lean();
         const user = await usersModel
           .findOne({ email: credentials.email.toLowerCase() })
           .select("+password")
@@ -36,8 +31,6 @@ export const authOptions: NextAuthOptions = {
             role: UserRole;
             image?: string;
             password?: string;
-            // addresses?: AddressDTO[];
-            // selectedAddressIndex?: number;
           }>();
 
         if (!user || !user.password) return null;
@@ -54,34 +47,13 @@ export const authOptions: NextAuthOptions = {
           name: user.userName,
           role: user.role,
           image: user.image ?? null,
-          // addresses: user.addresses,
-          // selectedAddressIndex: user.selectedAddressIndex,
         };
       },
     }),
   ],
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
-  // callbacks: {
-  //   async jwt({ token, user, trigger, session }) {
-  //     if (user) {
-  //       token.id = user.id;
-  //       token.role = user.role as UserRole;
-  //     }
-  //     if (trigger === "update" && session) {
-  //       // 2. Merge the new data into the token
-  //       token.name = session.user.name;
-  //       token.email = session.user.email;
-  //     }
-  //     return token;
-  //   },
 
-  //   async session({ session, token }) {
-  //     session.user.id = token.id ?? "";
-  //     session.user.role = token.role ?? "customer";
-  //     return session;
-  //   },
-  // },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       // 1. Initial Sign-In: Attach ID and Role from the database
