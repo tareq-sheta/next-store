@@ -8,10 +8,10 @@ import { PopulatedOrderDoc, PopulatedOrderItem } from "@/types/orders";
 import {
   AdminProductDoc,
   AdminProductDTO,
-  ProductCategory,
   PublicProductDTO,
   SellerProductDTO,
 } from "@/types/products";
+import { ProductCategory } from "./validations/categories";
 
 export function toCartDTO(doc: CartDoc): CartDTO {
   return {

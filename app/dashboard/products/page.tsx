@@ -11,7 +11,6 @@ import {
   FiPlus,
 } from "react-icons/fi";
 import type {
-  ProductCategory,
   CreateProductInput,
   SellerProductDTO,
   AdminProductDTO,
@@ -28,16 +27,10 @@ import {
   fetchSellerDashboardProducts,
   updateProduct,
 } from "@/lib/api/products";
-
-const CATEGORIES: ProductCategory[] = [
-  "phones",
-  "smartwatch",
-  "headphones",
-  "cameras",
-  "computers",
-  "gaming",
-  "others",
-];
+import {
+  CATEGORY_DEFINITIONS,
+  ProductCategory,
+} from "@/lib/validations/categories";
 
 type DashboardProduct = SellerProductDTO | AdminProductDTO;
 
@@ -149,9 +142,13 @@ function ProductModal({
               }
               className="w-full bg-gray-150 border border-gray-100 rounded-lg px-3 py-2.5 text-gray-900 text-sm outline-none focus:border-gray-400 transition-colors capitalize"
             >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c} className="bg-white capitalize">
-                  {c}
+              {CATEGORY_DEFINITIONS.map((c) => (
+                <option
+                  key={c.slug}
+                  value={c.slug}
+                  className="bg-white capitalize"
+                >
+                  {c.name}
                 </option>
               ))}
             </select>
@@ -338,9 +335,9 @@ export default function ProductsPage() {
             className="bg-white border border-gray-100 rounded-xl px-3 py-2.5 text-gray-600 text-sm outline-none focus:border-gray-400 transition-colors capitalize"
           >
             <option value="all">All categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c} className="capitalize">
-                {c}
+            {CATEGORY_DEFINITIONS.map((c) => (
+              <option key={c.slug} value={c.slug} className="capitalize">
+                {c.name}
               </option>
             ))}
           </select>

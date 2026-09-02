@@ -1,14 +1,18 @@
 import mongoose, { Document, Schema, Model, Types, SortOrder } from "mongoose";
 import { CustomError } from "@/utils/ErrorHandler";
-import { CATEGORY_DEFINITIONS } from "@/lib/validations/categories";
+import {
+  CATEGORY_DEFINITIONS,
+  ProductCategory,
+} from "@/lib/validations/categories";
 import type { PopulatedSeller } from "@/types/products";
 import { PaginatedResult } from "@/types";
 import { isValidObjectId, omitId } from "@/utils/mongoose";
-import { toPublicProductDTO } from "@/lib/dto";
+// import { toPublicProductDTO } from "@/lib/dto";
 
 // CATEGORY_DEFINITIONS is now an array of objects; extract the slug strings for
 // use as the canonical category type and in the Mongoose enum validator.
-export type ProductCategory = (typeof CATEGORY_DEFINITIONS)[number]["slug"];
+
+// export type ProductCategory = (typeof CATEGORY_DEFINITIONS)[number]["slug"];
 /**
  * Options for fetching top-selling products.
  */

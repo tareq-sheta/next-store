@@ -7,8 +7,11 @@ import ProductCard from "@/components/ProductCard";
 import { ProductGridSkeleton } from "@/components/ProductSkeleton";
 import { toPublicProductDTO } from "@/lib/dto";
 import Pagination from "@/components/Pagination";
-import { ProductCategory } from "@/types";
-import { VALID_CATEGORIES } from "@/lib/validations/categories";
+// import { ProductCategory } from "@/types";
+import {
+  ProductCategory,
+  VALID_CATEGORIES,
+} from "@/lib/validations/categories";
 
 interface PageProps {
   searchParams: Promise<{

@@ -1,17 +1,6 @@
 import { Types } from "mongoose";
 import { ProductDoc } from "@/models/products";
-
-/**
- * Valid product categories.
- */
-export type ProductCategory =
-  | "phones"
-  | "smartwatch"
-  | "headphones"
-  | "cameras"
-  | "computers"
-  | "gaming"
-  | "others";
+import { ProductCategory } from "@/lib/validations/categories";
 
 /**
  * Valid stock statuses.

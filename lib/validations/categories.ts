@@ -58,4 +58,4 @@ export const VALID_CATEGORIES = CATEGORY_DEFINITIONS.map((c) => c.slug) as [
   ...(typeof CATEGORY_DEFINITIONS)[number]["slug"][],
 ];
 
-export type ProductCategory = (typeof CATEGORY_DEFINITIONS)[number];
+export type ProductCategory = (typeof CATEGORY_DEFINITIONS)[number]["slug"];

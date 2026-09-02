@@ -15,7 +15,6 @@ export type {
   AdminProductDTO,
   CreateProductInput,
   UpdateProductInput,
-  ProductCategory,
 } from "./products";
 
 export type { CartDTO, CartItemDTO, AddToCartInput, CartItem } from "./cart";
@@ -33,7 +32,6 @@ export type {
   CreateCategoryInput,
   UpdateCategoryInput,
 } from "./categories";
-
 
 /** Client-side cart line used by Zustand (not the API CartDTO) */
 
