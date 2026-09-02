@@ -1,29 +1,49 @@
 import mongoose, { Document, Schema, Model, Types } from "mongoose";
 import { cartItemSchema, ICartItem } from "./cartItem";
 import { CustomError } from "@/utils/ErrorHandler";
+import { omitId } from "@/utils/mongoose";
 
+/**
+ * Input type for a product in a cart.
+ */
 export type CartProductInput = {
   product: Types.ObjectId;
   quantity: number;
 };
 
+/**
+ * Input type for creating a new cart.
+ */
 export type CartCreateInput = {
   user: Types.ObjectId;
   products?: CartProductInput[];
 };
 
+/**
+ * Input type for updating an existing cart.
+ */
 export type CartUpdateInput = {
   user?: Types.ObjectId;
   products?: CartProductInput[];
 };
 
+/**
+ * Mongoose document interface for a Cart.
+ */
 export interface ICart extends Document {
+  /** The ID of the user who owns the cart */
   user: Types.ObjectId;
+  /** The products currently in the cart */
   products: ICartItem[];
+  /** Creation timestamp */
   createdAt?: Date;
+  /** Last update timestamp */
   updatedAt?: Date;
 }
 
+/**
+ * Plain object representation of a Cart, without Mongoose Document properties.
+ */
 export type CartDoc = {
   _id: Types.ObjectId;
   user: Types.ObjectId;
@@ -53,15 +73,20 @@ const cartSchema: Schema<ICart> = new mongoose.Schema(
   },
 );
 
+/**
+ * Mongoose model for Cart documents.
+ */
 export const cartModel: Model<ICart> =
   mongoose.models.Cart || mongoose.model<ICart>("Cart", cartSchema);
 
-function omitId<T extends { _id?: unknown }>(data: T): Omit<T, "_id"> {
-  const { _id: _omit, ...rest } = data;
-  return rest;
-}
-
+/**
+ * Repository class for interacting with the Cart collection.
+ */
 class Cart {
+  /**
+   * Fetches all carts.
+   * @returns A promise resolving to an array of CartDoc.
+   */
   async showAll(): Promise<CartDoc[]> {
     try {
       return await cartModel.find().lean<CartDoc[]>();
@@ -70,6 +95,11 @@ class Cart {
     }
   }
 
+  /**
+   * Fetches a single cart matching the query.
+   * @param query The MongoDB query object.
+   * @returns The cart document or null if not found.
+   */
   async showOne(query: Record<string, unknown>): Promise<CartDoc | null> {
     try {
       return await cartModel.findOne(query).lean<CartDoc | null>();
@@ -82,6 +112,11 @@ class Cart {
     }
   }
 
+  /**
+   * Creates a new cart for a user.
+   * @param obj The cart data.
+   * @returns The created cart document.
+   */
   async create(obj: CartCreateInput): Promise<CartDoc> {
     try {
       const existingCart = await cartModel.findOne({ user: obj.user }).lean();
@@ -104,6 +139,11 @@ class Cart {
     }
   }
 
+  /**
+   * Deletes a cart by ID.
+   * @param id The ID of the cart to delete.
+   * @returns The deleted cart document or null if not found.
+   */
   async delete(id: string): Promise<CartDoc | null> {
     try {
       return await cartModel.findByIdAndDelete(id).lean<CartDoc | null>();
@@ -112,6 +152,12 @@ class Cart {
     }
   }
 
+  /**
+   * Updates a cart by ID.
+   * @param id The ID of the cart to update.
+   * @param data The data to update.
+   * @returns The updated cart document or null if not found.
+   */
   async update(
     id: string,
     data: CartUpdateInput & { _id?: unknown },

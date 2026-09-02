@@ -1,7 +1,12 @@
 import mongoose, { Schema, Types } from "mongoose";
 
+/**
+ * Represents a single item in a cart or order.
+ */
 export interface ICartItem {
+  /** The product ID */
   product: Types.ObjectId;
+  /** The quantity of this product */
   quantity: number;
 }
 

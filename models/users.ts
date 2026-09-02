@@ -1,35 +1,67 @@
-import mongoose, { Document, Schema, Model, Types, UpdateQuery } from "mongoose";
+import mongoose, {
+  Document,
+  Schema,
+  Model,
+  Types,
+  UpdateQuery,
+} from "mongoose";
 import { genSalt, hash } from "bcryptjs";
 import { CustomError } from "@/utils/ErrorHandler";
+import { PaginatedResult, UserRole } from "@/types";
+import { isValidObjectId, omitId } from "@/utils/mongoose";
 
-export type UserRole = "admin" | "seller" | "customer";
 export type AuthProvider = "credentials" | "google" | "github";
 
+/**
+ * Represents a user's address.
+ */
 export interface IAddress {
+  /** The title of the address (e.g., "Home", "Office") */
   title: string;
+  /** The full physical address */
   fullAddress: string;
+  /** Contact phone number for the address */
   phone: string;
+  /** Optional label for the address */
   label?: string;
 }
 
+/**
+ * Mongoose document interface for a User.
+ */
 export interface IUser extends Document {
+  /** The unique username */
   userName: string;
+  /** The unique email address */
   email: string;
+  /** The hashed password (optional if using OAuth) */
   password?: string;
+  /** The user's role (customer, seller, admin) */
   role: UserRole;
+  /** Array of user addresses */
   addresses?: IAddress[];
+  /** Index of the currently selected address */
+  selectedAddressIndex?: number | null;
+  /** URL to the user's avatar image */
   image?: string;
+  /** The authentication provider used */
   provider?: AuthProvider;
+  /** Creation timestamp */
   createdAt?: Date;
+  /** Last update timestamp */
   updatedAt?: Date;
 }
 
+/**
+ * Plain object representation of a User, without Mongoose Document properties.
+ */
 export type UserDoc = {
   _id: Types.ObjectId;
   userName: string;
   email: string;
   role: UserRole;
   addresses?: IAddress[];
+  selectedAddressIndex?: number | null;
   image?: string;
   provider?: AuthProvider;
   createdAt?: Date;
@@ -41,6 +73,7 @@ const usersSchema: Schema<IUser> = new mongoose.Schema(
     userName: {
       type: String,
       unique: true,
+      sparse: true,
       trim: true,
       minlength: [5, "A userName must have at least 5 characters."],
     },
@@ -77,6 +110,7 @@ const usersSchema: Schema<IUser> = new mongoose.Schema(
         label: { type: String, default: "Home" },
       },
     ],
+    selectedAddressIndex: { type: Number, default: null },
   },
   {
     timestamps: true,
@@ -98,26 +132,65 @@ usersSchema.pre("findOneAndUpdate", async function () {
   }
 });
 
+/**
+ * Mongoose model for User documents.
+ */
 export const usersModel: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>("User", usersSchema);
 
-function omitId<T extends { _id?: unknown }>(data: T): Omit<T, "_id"> {
-  const { _id: _omit, ...rest } = data;
-  return rest;
-}
 
+/**
+ * Repository class for interacting with the User collection.
+ */
 class Users {
+  /**
+   * Fetches all users.
+   * @returns A promise that resolves to an array of UserDoc.
+   */
   async showAll(): Promise<UserDoc[]> {
     try {
-      return await usersModel
-        .find()
-        .select("-password")
-        .lean<UserDoc[]>();
+      return await usersModel.find().select("-password").lean<UserDoc[]>();
     } catch {
       throw new CustomError("Failed to fetch users", 500, "users.showAll");
     }
   }
 
+  /**
+   * Fetches users with pagination.
+   * Admin user listing.
+   * @param options Pagination options.
+   * @returns A paginated result containing users.
+   */
+  async showAllPaginated(
+    options: { page?: number; limit?: number } = {},
+  ): Promise<PaginatedResult<UserDoc>> {
+    const { page = 1, limit = 20 } = options;
+    try {
+      const [items, total] = await Promise.all([
+        usersModel
+          .find()
+          .select("-password")
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean<UserDoc[]>(),
+        usersModel.countDocuments(),
+      ]);
+      return { items, total };
+    } catch {
+      throw new CustomError(
+        "Failed to fetch users",
+        500,
+        "users.showAllPaginated",
+      );
+    }
+  }
+
+  /**
+   * Fetches a single user matching the query.
+   * @param query MongoDB query object.
+   * @returns The user document or null if not found.
+   */
   async showOne(query: Record<string, unknown>): Promise<UserDoc | null> {
     try {
       return await usersModel
@@ -133,6 +206,11 @@ class Users {
     }
   }
 
+  /**
+   * Creates a new user.
+   * @param obj The user data.
+   * @returns The created user document (without password).
+   */
   async create(obj: Partial<IUser>): Promise<UserDoc> {
     try {
       const user = await usersModel.create(obj);
@@ -156,7 +234,13 @@ class Users {
     }
   }
 
+  /**
+   * Deletes a user by ID.
+   * @param id The ID of the user to delete.
+   * @returns The deleted user document or null if not found.
+   */
   async delete(id: string): Promise<UserDoc | null> {
+    if (!isValidObjectId(id)) return null;
     try {
       return await usersModel
         .findByIdAndDelete(id)
@@ -167,14 +251,25 @@ class Users {
     }
   }
 
+  /**
+   * Updates a user by ID.
+   * @param id The ID of the user to update.
+   * @param data The data to update.
+   * @returns The updated user document or null if not found.
+   */
   async update(
     id: string,
     data: Partial<IUser> & { _id?: unknown },
   ): Promise<UserDoc | null> {
+    if (!isValidObjectId(id)) return null;
     try {
       const updateData = omitId(data);
       return await usersModel
-        .findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true })
+        .findByIdAndUpdate(
+          id,
+          { $set: updateData },
+          { new: true, runValidators: true },
+        )
         .select("-password")
         .lean<UserDoc | null>();
     } catch {
