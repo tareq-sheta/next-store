@@ -26,18 +26,6 @@ const nextConfig = {
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
-  // experimental: {
-  //   turbopackUseSystemTlsCerts: true,
-  // },
 };
 
 export default nextConfig;
-// -----
-
-// const nextConfig = {
-//   async headers() {
-//     return [{ source: '/(.*)', headers: securityHeaders }]
-//   },
-// }
-
-// export default nextConfig
