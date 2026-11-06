@@ -1,6 +1,7 @@
 // hooks/users/useDeleteUser.ts
+import { deleteUser } from "@/lib";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteUser } from "@/handlers/users";
+// import { deleteUser } from "@/handlers/users";
 
 export function useDeleteUser() {
   const queryClient = useQueryClient();

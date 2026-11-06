@@ -1,16 +1,29 @@
 import mongoose, { Document, Schema, Model, Types } from "mongoose";
 import slugify from "slugify";
 import { CustomError } from "@/utils/ErrorHandler";
+import { omitId } from "@/utils/mongoose";
 
+/**
+ * Mongoose document interface for a Category.
+ */
 export interface ICategory extends Document {
+  /** The display name of the category */
   name: string;
+  /** URL-friendly slug */
   slug: string;
+  /** ID of the parent category, if this is a subcategory */
   parentId?: Types.ObjectId | null;
+  /** The depth level of the category in the hierarchy (0-2) */
   depth: number;
+  /** Creation timestamp */
   createdAt?: Date;
+  /** Last update timestamp */
   updatedAt?: Date;
 }
 
+/**
+ * Plain object representation of a Category, without Mongoose Document properties.
+ */
 export type CategoryDoc = {
   _id: Types.ObjectId;
   name: string;
@@ -62,16 +75,22 @@ categoriesSchema.pre("save", async function () {
   }
 });
 
+/**
+ * Mongoose model for Category documents.
+ */
 export const categoriesModel: Model<ICategory> =
   mongoose.models.Category ||
   mongoose.model<ICategory>("Category", categoriesSchema);
 
-function omitId<T extends { _id?: unknown }>(data: T): Omit<T, "_id"> {
-  const { _id: _omit, ...rest } = data;
-  return rest;
-}
 
+/**
+ * Repository class for interacting with the Category collection.
+ */
 class Categories {
+  /**
+   * Fetches all categories.
+   * @returns A promise resolving to an array of CategoryDoc.
+   */
   async showAll(): Promise<CategoryDoc[]> {
     try {
       return await categoriesModel
@@ -87,6 +106,11 @@ class Categories {
     }
   }
 
+  /**
+   * Fetches a single category by its ID or slug.
+   * @param query The category ID or slug string.
+   * @returns The category document or null if not found.
+   */
   async showOne(query: string): Promise<CategoryDoc | null> {
     try {
       const isId = mongoose.Types.ObjectId.isValid(query);
@@ -102,6 +126,12 @@ class Categories {
     }
   }
 
+  /**
+   * Creates a new category.
+   * Validates the depth of the category tree (max 3 levels).
+   * @param obj The category data.
+   * @returns The created category document.
+   */
   async create(obj: Partial<ICategory>): Promise<CategoryDoc> {
     try {
       if (obj.parentId) {
@@ -146,6 +176,11 @@ class Categories {
     }
   }
 
+  /**
+   * Deletes a category by ID.
+   * @param id The ID of the category to delete.
+   * @returns The deleted category document or null if not found.
+   */
   async delete(id: string): Promise<CategoryDoc | null> {
     try {
       return await categoriesModel
@@ -160,12 +195,48 @@ class Categories {
     }
   }
 
+  /**
+   * Updates a category by ID.
+   * Validates depth and prevents circular dependencies (a category cannot be its own parent).
+   * @param id The ID of the category to update.
+   * @param data The data to update.
+   * @returns The updated category document or null if not found.
+   */
   async update(
     id: string,
     data: Partial<ICategory> & { _id?: unknown },
   ): Promise<CategoryDoc | null> {
     try {
       const updateData = omitId(data);
+      if (updateData.parentId !== undefined) {
+        if (updateData.parentId?.toString() === id) {
+          throw new CustomError(
+            "A category cannot be its own parent",
+            400,
+            "categories.update",
+          );
+        }
+        if (updateData.parentId) {
+          const parent = await categoriesModel
+            .findById(updateData.parentId)
+            .lean<CategoryDoc | null>();
+          if (!parent)
+            throw new CustomError(
+              "Parent category not found",
+              404,
+              "categories.update",
+            );
+          if (parent.depth >= 2)
+            throw new CustomError(
+              "Max category depth of 3 reached",
+              400,
+              "categories.update",
+            );
+          (updateData as Partial<ICategory>).depth = parent.depth + 1;
+        } else {
+          (updateData as Partial<ICategory>).depth = 0;
+        }
+      }
       return await categoriesModel
         .findByIdAndUpdate(
           id,
@@ -173,7 +244,8 @@ class Categories {
           { new: true, runValidators: true },
         )
         .lean<CategoryDoc | null>();
-    } catch {
+    } catch (err) {
+      if (err instanceof CustomError) throw err;
       throw new CustomError(
         "Failed to update category",
         500,

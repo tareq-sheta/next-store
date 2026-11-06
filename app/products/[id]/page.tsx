@@ -1,88 +1,101 @@
-"use client";
-
+// app/products/[id]/page.tsx
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { products } from "@/lib/data";
-import { useAuthStore, useCartStore } from "@/lib/store";
-import { useState } from "react";
-import ProductCard from "@/components/ProductCard";
-import { FaTruck, FaShieldAlt, FaShoppingCart } from "react-icons/fa";
+import connectToDatabase from "@/lib/database";
+import Products from "@/models/products";
+import { toPublicProductDTO } from "@/lib/dto";
+import AddToCartButton from "@/components/AddToCartButton"; // Client component
+import { FaShieldAlt, FaShoppingCart, FaTruck } from "react-icons/fa";
+import TopProducts from "@/components/TopProducts";
 
-const COLORS = [
-  { name: "Black", bg: "bg-black" },
-  { name: "Gray", bg: "bg-gray-500" },
-  { name: "Blue", bg: "bg-blue-600" },
-  { name: "Gold", bg: "bg-yellow-500" },
-];
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-export default function ProductDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const currentUser = useAuthStore((state) => state.currentUser);
-  const addToCart = useCartStore((state) => state.addToCart);
-  const [selectedColor, setSelectedColor] = useState("Black");
-  const [added, setAdded] = useState(false);
+// 1. Dynamic SEO Metadata for Google / Social Media Crawlers
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  await connectToDatabase();
+  const productDoc = await new Products().findById(id);
 
-  const product = products.find((p) => p.id === Number(id));
+  if (!productDoc) return { title: "Product Not Found" };
 
-  if (!product) {
-    return (
-      <div className="container mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold text-gray-700">Product not found</h2>
-        <Link
-          href="/products"
-          className="mt-4 inline-block text-blue-600 hover:underline"
-        >
-          ← Back to Products
-        </Link>
-      </div>
-    );
-  }
-
-  const similar = products
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 4);
-
-  const handleAddToCart = () => {
-    if (!currentUser) {
-      router.push("/login");
-      return;
-    }
-    addToCart(product);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+  return {
+    title: `${productDoc.name} | Cyber Tech Store`,
+    description: productDoc.description,
+    openGraph: {
+      title: productDoc.name,
+      description: productDoc.description,
+      images: [{ url: productDoc.image }],
+    },
   };
+}
+
+// 2. Fast Server Component (RSC)
+export default async function ProductDetailPage({ params }: PageProps) {
+  const { id } = await params;
+  await connectToDatabase();
+  const productsRepo = new Products();
+
+  const productDoc = await productsRepo.findById(id);
+  if (!productDoc) notFound();
+
+  const product = toPublicProductDTO(productDoc);
+
+  // Fetch similar products in DB (same category, excluding current)
+  const { items: rawSimilar } = await productsRepo.showPublic({
+    category: product.category as any,
+    limit: 4,
+  });
+  const similar = rawSimilar
+    .map(toPublicProductDTO)
+    .filter((p) => p._id !== product._id);
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    // <div className="container mx-auto px-50 py-8">
+    // <div className="w-full xl:w-330 mx-auto py-8 px-4 md:px-8">
+    <div className="w-full">
       {/* Breadcrumb */}
-      <nav className="text-sm text-gray-500 mb-8" aria-label="Breadcrumb">
-        <Link href="/" className="hover:text-gray-700">
+      <nav
+        className="text-sm text-gray-500 mb-8 w-full px-10 py-4"
+        aria-label="Breadcrumb"
+      >
+        <Link
+          href="/"
+          className="hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400 rounded"
+        >
           Home
         </Link>
         <span className="mx-2">›</span>
-        <Link href="/products" className="hover:text-gray-700">
+        <Link
+          href="/products"
+          className="hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-400 rounded"
+        >
           Products
         </Link>
         <span className="mx-2">›</span>
         <span className="text-gray-900 font-medium">{product.name}</span>
       </nav>
 
-      {/* Main Product */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16">
-        {/* Image */}
-        <div className="bg-gray-50 rounded-2xl flex items-center justify-center p-8 min-h-[350px] relative">
+      {/* Main Product Layout */}
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16 "> */}
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16 w-full xs:px-20  xl:max-w-330  md:max-w-240  sm:max-w-140 mx-auto"> */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-16 w-full px-6 md:px-0 xl:max-w-330 md:max-w-240 sm:max-w-140 mx-auto">
+        <div className="bg-gray-100 rounded-2xl flex items-center justify-center p-8 min-h-87.5 relative">
           <Image
             src={product.image}
             alt={product.name}
             width={400}
             height={400}
-            className="object-contain max-h-[350px]"
+            priority
+            className="object-contain max-h-87.5"
           />
         </div>
 
-        {/* Info */}
         <div className="flex flex-col justify-center">
           <span className="text-sm text-gray-400 uppercase tracking-wide mb-2">
             {product.category}
@@ -90,75 +103,23 @@ export default function ProductDetailPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
             {product.name}
           </h1>
-
-          <div className="flex items-center gap-4 mb-6">
-            <span className="text-3xl font-bold text-gray-900">
-              ${product.price}
-            </span>
-            <span
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                product.stock > 0
-                  ? "bg-green-100 text-green-700"
-                  : "bg-red-100 text-red-700"
-              }`}
-            >
-              {product.stock > 0
-                ? `In Stock (${product.stock})`
-                : "Out of Stock"}
-            </span>
-          </div>
-
-          {/* Color Selection */}
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-gray-700 mb-3">
-              Available Colors:
-            </p>
-            <div className="flex gap-3">
-              {COLORS.map((c) => (
-                <button
-                  key={c.name}
-                  onClick={() => setSelectedColor(c.name)}
-                  title={c.name}
-                  aria-label={`Select ${c.name}`}
-                  className={`w-9 h-9 rounded-full ${c.bg} transition-transform hover:scale-110 ${
-                    selectedColor === c.name
-                      ? "ring-2 ring-offset-2 ring-gray-800"
-                      : ""
-                  }`}
-                />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Selected: {selectedColor}
-            </p>
-          </div>
-
-          {/* Description */}
+          <p className="text-3xl font-bold text-gray-900 mb-6">
+            ${product.price}
+          </p>
           <p className="text-gray-600 leading-relaxed mb-8">
             {product.description}
           </p>
 
-          {/* Add to Cart */}
-          <button
-            onClick={handleAddToCart}
-            disabled={product.stock === 0}
-            className={`w-full md:w-auto px-10 py-3 rounded-lg font-semibold text-base transition-all ${
-              added
-                ? "bg-green-600 text-white"
-                : "bg-gray-900 text-white hover:bg-gray-700"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {added ? "✓ Added to Cart!" : "Add to Cart"}
-          </button>
-
-          {/* Features */}
-          <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t border-gray-100">
+          {/* Interactive Client Component for Cart Action */}
+          <AddToCartButton product={product} />
+          {/* <div className="grid grid-cols-3 gap-4 mt-8 pt-8 "> */}
+          <div className="flex flex-wrap justify-around gap-6 mt-8 pt-8">
             {[
               { icon: <FaTruck />, title: "Free Delivery", sub: "1-2 days" },
               {
                 icon: <FaShoppingCart />,
                 title: "Stock Status",
-                sub: `${product.stock > 0 ? "In Stock" : "Out of Stock"}`,
+                sub: `${product.stockStatus === "IN_STOCK" ? "In Stock" : product.stockStatus === "OUT_OF_STOCK" ? "Out of Stock" : "Low Stock"}`,
               },
               {
                 icon: <FaShieldAlt />,
@@ -168,11 +129,15 @@ export default function ProductDetailPage() {
             ].map((f) => (
               <div
                 key={f.title}
-                className="flex flex-col items-center text-center gap-2"
+                className="flex flex-row justify-center items-center text-center gap-2"
               >
-                <span className="text-xl text-gray-700">{f.icon}</span>
-                <p className="text-xs font-semibold text-gray-800">{f.title}</p>
-                <p className="text-xs text-gray-400">{f.sub}</p>
+                <span className="text-3xl text-gray-700">{f.icon}</span>
+                <span>
+                  <p className="text-xs font-semibold text-gray-800">
+                    {f.title}
+                  </p>
+                  <p className="text-xs text-gray-400">{f.sub}</p>
+                </span>
               </div>
             ))}
           </div>
@@ -180,18 +145,25 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Similar Products */}
-      {similar.length > 0 && (
-        <section>
+      {/* {similar.length > 0 && (
+        // <section>
+        // <section className="w-full xl:max-w-330 md:max-w-240 sm:max-w-140 mx-auto py-10">
+        <section className="w-full px-6 md:px-0 xl:max-w-330 md:max-w-240 sm:max-w-140 mx-auto py-10">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             Similar Products
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {similar.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              <ProductCard key={p._id} product={p} />
             ))}
           </div>
         </section>
-      )}
+      )} */}
+      <TopProducts
+        limit={4}
+        category={product.category}
+        excludeId={product._id}
+      />
     </div>
   );
 }

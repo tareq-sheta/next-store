@@ -8,12 +8,13 @@ if (!MONGODB_URI) {
   );
 }
 
-// Global interface for TypeScript to recognize our cached mongoose instance
+// Global interface for TypeScript to recognize our cached mongoose instance and listeners flag
 declare global {
   var mongoose: {
     conn: mongoose.Connection | null;
     promise: Promise<mongoose.Connection> | null;
   };
+  var hasRegisteredListeners: boolean | undefined;
 }
 
 const CONNECTION_OPTIONS: mongoose.ConnectOptions = {
@@ -34,28 +35,32 @@ if (!cached) {
   cached = global.mongoose = { conn: null, promise: null };
 }
 
-// -- Event listeners (registered once) ---------------------------------------
+// -- Event listeners (guarded to register exactly once across hot-reloads) -------
 
-mongoose.connection.on("connected", () => {
-  if (process.env.NODE_ENV === "development") {
-    console.log("MongoDB connected");
-  }
-});
+if (!global.hasRegisteredListeners) {
+  mongoose.connection.on("connected", () => {
+    if (process.env.NODE_ENV === "development") {
+      // console.log("MongoDB connected");
+    }
+  });
 
-mongoose.connection.on("disconnected", () => {
-  if (process.env.NODE_ENV === "development") {
-    console.warn("MongoDB disconnected");
-  }
-  // Reset cache so the next call re-establishes the connection
-  cached.conn = null;
-  cached.promise = null;
-});
+  mongoose.connection.on("disconnected", () => {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("MongoDB disconnected");
+    }
+    // Reset cache so the next call re-establishes the connection
+    cached.conn = null;
+    cached.promise = null;
+  });
 
-mongoose.connection.on("error", (err) => {
-  console.error("MongoDB connection error:", err);
-  cached.conn = null;
-  cached.promise = null;
-});
+  mongoose.connection.on("error", (err) => {
+    console.error("MongoDB connection error:", err);
+    cached.conn = null;
+    cached.promise = null;
+  });
+
+  global.hasRegisteredListeners = true;
+}
 
 // -- Graceful shutdown -------------------------------------------------------
 

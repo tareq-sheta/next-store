@@ -1,15 +1,22 @@
 import mongoose, { Schema, Types } from "mongoose";
 
-export type OrderItemStatus =
-  | "pending"
-  | "shipped"
-  | "delivered"
-  | "cancelled";
+/**
+ * Valid statuses for a specific item in an order.
+ */
+export type OrderItemStatus = "pending" | "shipped" | "delivered" | "cancelled";
 
+/**
+ * Represents a single item within an order.
+ */
 export interface IOrderItem {
+  /** The product ID */
   product: Types.ObjectId;
+  /** The quantity ordered */
   quantity: number;
-  status: OrderItemStatus;
+  /** The unit price at the time of purchase */
+  unitPrice: number;
+  /** The status of this specific item */
+  productStatus: OrderItemStatus;
 }
 
 export const orderItemSchema = new Schema<IOrderItem>({
@@ -28,7 +35,13 @@ export const orderItemSchema = new Schema<IOrderItem>({
       message: "An order must have a quantity of at least one product.",
     },
   },
-  status: {
+  unitPrice: {
+    // this prop is needed in case rrthe product price has changed
+    type: Number,
+    required: [true, "Unit price at purchase is required."],
+    min: [0, "Unit price cannot be negative."],
+  },
+  productStatus: {
     type: String,
     enum: {
       values: ["pending", "shipped", "delivered", "cancelled"],

@@ -3,8 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import LayoutContent from "@/components/LayoutContent";
-
-
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Cyber - Tech Store",
@@ -26,20 +25,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
-
   return (
     <html lang="en">
-
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen custom-scroll`}
       >
-        
-          <LayoutContent>
-            {children}
-          </LayoutContent>
-        
+        <LayoutContent>{children}</LayoutContent>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );
 }
+

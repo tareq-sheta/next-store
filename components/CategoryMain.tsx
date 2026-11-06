@@ -1,6 +1,6 @@
+import { CATEGORY_DEFINITIONS } from "@/lib/validations/categories";
 import Image from "next/image";
 import Link from "next/link";
-import { categories } from "@/lib/data";
 
 export default function CategoryMain() {
   // let categories: { slug: string; name: string; icon: string }[] = await fetch(
@@ -21,7 +21,7 @@ export default function CategoryMain() {
       {/* Categories Grid */}
       <div className="overflow-x-auto pb-4 scrollbar-hide">
         <div className="flex md:grid md:grid-cols-6 gap-4 min-w-max md:min-w-full">
-          {categories.map((cat) => (
+          {CATEGORY_DEFINITIONS.map((cat) => (
             <Link
               key={cat.slug}
               href={`/products?category=${cat.slug}`}
