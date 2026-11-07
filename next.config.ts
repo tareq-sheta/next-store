@@ -21,6 +21,10 @@ const nextConfig = {
         hostname: "img.icons8.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "www.google.com",
+      },
     ],
   },
   async headers() {
